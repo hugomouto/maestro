@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maestro"
+version = "0.1.0"
+description = "Meta-framework auto-configurável de agentes, tasks e workflows"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic",
+    "pyyaml",
+    "click",
+    "rich",
+]
+
+[project.scripts]
+maestro = "maestro.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["maestro*"]
+
+[tool.setuptools.package-data]
+maestro = ["core/**/*", "ralph/*", "skills/*"]

@@ -1,0 +1,23 @@
+domain: "{{DOMAIN_NAME}}"
+version: "0.1.0"
+
+squads:
+  - id: "{{SQUAD_ID}}"
+    agents:
+      - id: "{{AGENT_ID}}"
+        persona_base: "{{DECISION_MAKER}}"
+        commands:
+          - "{{OPERATION_ID}}"
+    tasks:
+      - id: "{{OPERATION_ID}}"
+        intent: "{{OPERATION_INTENT}}"
+        executor: agent
+        quality_gate: "{{AGENT_ID}}"
+        failure_modes:
+          - "{{FAILURE_MODE}}"
+        depends_on: []
+        context_files: []    # herdado do domain-model — teto de contexto
+    workflows:
+      - id: "fluxo-{{SQUAD_ID}}"
+        steps:
+          - "{{OPERATION_ID}}"

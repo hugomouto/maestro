@@ -3,11 +3,43 @@
 Meta-framework auto-configurável de agentes, tasks e workflows.
 Entende o domínio do usuário e gera toda a estrutura de operação a partir dele.
 
+## Dependências
+
+- Python 3.10+
+- [Claude Code](https://claude.ai/code) instalado e autenticado (`claude` disponível no terminal)
+- `pip` (gerenciador de pacotes Python)
+- Git
+
 ## Instalação
 
+### Em qualquer máquina (instalação global)
+
+Instala o CLI `maestro` globalmente, disponível em qualquer projeto:
+
 ```bash
-pip install git+https://github.com/SEU-USUARIO/maestro.git
+pip install git+https://github.com/hugomouto/maestro.git
 ```
+
+### Num projeto específico
+
+Após a instalação global, entre na pasta do projeto e rode:
+
+```bash
+cd meu-projeto
+maestro install
+```
+
+Isso cria a estrutura `.maestro-core/`, `maestro-workspace/`, `maestro.config.yaml` e `CLAUDE.md` no projeto atual.
+
+## Atualização
+
+Para atualizar para a versão mais recente do repositório:
+
+```bash
+pip install --upgrade git+https://github.com/hugomouto/maestro.git
+```
+
+Após atualizar o pacote, rode novamente `maestro install` dentro de projetos existentes caso queira atualizar os arquivos de core gerados localmente.
 
 ## Uso rápido
 

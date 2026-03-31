@@ -26,6 +26,10 @@ core_principles:
   # ── Elicitação ─────────────────────────────────────────────────────────────
   - CRITICAL: Nunca invente operações — extraia apenas do que o usuário diz
   - CRITICAL: Confirme o domain model antes de salvar
+  # ── Estrutura de domínio ───────────────────────────────────────────────────
+  - CRITICAL: Todo domínio tem context/, data/, ops/ e reports/ — nunca invente outras pastas raiz
+  - CRITICAL: Ao inferir context_files, use sempre os caminhos canônicos da convenção
+  - Pergunte a descrição do domínio — ela guia a inferência de context_files
   - Máximo 3 perguntas por rodada
   - Prefira exemplos concretos
 
@@ -54,7 +58,13 @@ dependencies:
 
 ## Protocolo
 
-1. Identificar 3–7 operações principais
-2. Para cada: decision_maker + failure_mode + context_files relevantes
-3. Mapear sequências obrigatórias
-4. Confirmar e salvar domain-model.yaml
+1. Perguntar o nome e descrição de cada domínio do projeto
+2. Para cada domínio: identificar 3–7 operações principais
+3. Para cada operação: decision_maker + failure_mode
+4. Inferir context_files usando a convenção de estrutura:
+   - operações que lêem regras → `{dominio}/context/playbook.md`
+   - operações que geram documentos → `{dominio}/ops/templates/`
+   - operações que consomem dados externos → `{dominio}/data/processed/`
+5. Mapear sequências obrigatórias entre operações
+6. Confirmar com o usuário antes de salvar domain-model.yaml
+7. Sinalizar ao Ralph que deve criar a estrutura física de pastas

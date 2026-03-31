@@ -20,10 +20,11 @@ saida:
     destino: maestro-workspace/domain-models/{domain_name}.yaml
 
 checklist:
+  - "[ ] Identificar nome e descrição do domínio"
   - "[ ] Identificar 3-7 operações principais"
   - "[ ] Mapear decision_maker por operação"
   - "[ ] Identificar failure_modes por operação"
-  - "[ ] Coletar context_files por operação (teto de contexto)"
+  - "[ ] Inferir context_files usando convenção de pastas"
   - "[ ] Mapear sequências obrigatórias"
   - "[ ] Confirmar domain model com o usuário"
 
@@ -42,8 +43,21 @@ Inclui coleta de context_files — o teto de contexto de cada operação.
 
 ## Passos
 
-1. Pergunte as 3-7 operações principais
-2. Para cada: decision_maker, failure_mode, e arquivos que o agente
-   PODE precisar consultar (context_files)
-3. Mapeie sequências obrigatórias
-4. Confirme e salve
+1. Pergunte o nome do domínio e uma descrição de 1 linha do que ele faz
+2. Liste as 3–7 operações principais do domínio
+3. Para cada operação:
+   - Quem decide que está concluída? (decision_maker)
+   - O que pode dar errado? (failure_mode)
+   - Infira context_files usando a convenção:
+     - Se a operação usa regras/processo → `{dominio}/context/playbook.md`
+     - Se a operação gera um documento → `{dominio}/ops/templates/{nome}-template.md`
+     - Se a operação consome dados externos → `{dominio}/data/processed/{fonte}.md`
+     - Se a operação cruza domínios → inclua o caminho do domínio de origem
+4. Mapeie sequências obrigatórias
+5. Confirme o domain-model.yaml com o usuário antes de salvar
+
+## Nota sobre estrutura física
+
+O Maestro criará automaticamente a estrutura de pastas
+(context/, data/, ops/, reports/ e subpastas) para cada domínio
+durante a execução do Ralph. O intake não precisa perguntar sobre isso.

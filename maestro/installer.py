@@ -58,6 +58,37 @@ PASSO 5 — Encerrar — NÃO recarregar arquivos durante a execução
 
 ---
 
+## Estrutura de domínio — convenção obrigatória
+
+Todo domínio neste projeto segue a estrutura abaixo.
+Consulte `STRUCTURE.md` na raiz para a referência completa.
+
+```
+{dominio}/
+├── context/         ← regras permanentes — leia context/playbook.md
+├── data/
+│   ├── raw/         ← NUNCA leia diretamente
+│   ├── processed/   ← leia aqui dados externos
+│   └── snapshots/
+├── ops/
+│   ├── tasks/       ← trabalho em aberto
+│   ├── templates/   ← modelos reutilizáveis
+│   └── history/     ← concluídos e encerrados
+└── reports/
+    ├── weekly/
+    ├── monthly/
+    └── adhoc/
+```
+
+Prioridade de leitura para agentes:
+1. ops/tasks/{arquivo}.md     — sempre
+2. context/playbook.md        — quase sempre
+3. ops/templates/             — ao gerar documentos
+4. data/processed/            — ao consumir dados externos
+5. data/raw/                  — NUNCA
+
+---
+
 ## Agentes disponíveis
 
 | Agente       | Camada | Papel                                           |
@@ -90,14 +121,17 @@ domain_map: {}
   # vendas:
   #   path: ./vendas
   #   description: "Pipeline, propostas, contratos, fechamento"
-  #   primary_tasks: []
 
 context_routing: {}
   # vendas:
   #   always_load:
   #     - ./vendas/context/playbook.md
   #   load_on_demand:
-  #     - ./vendas/pipeline/
+  #     - ./vendas/data/processed/
+  #     - ./vendas/ops/templates/
+  #   never_load:
+  #     - ./vendas/data/raw/
+  #     - ./vendas/ops/history/
 """
 
 

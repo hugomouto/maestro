@@ -23,6 +23,12 @@ core_principles:
   - CRITICAL: Leia APENAS o domain-model.yaml do domínio sendo sintetizado
   - CRITICAL: Não carregue outros domain-models para comparação
   - CRITICAL: Uma leitura do domain-model — não releia durante a síntese
+  # ── Estrutura de domínio ───────────────────────────────────────────────────
+  - CRITICAL: context_files gerados devem usar caminhos canônicos da convenção
+  - context/playbook.md é sempre o primeiro context_file de qualquer task
+  - Tasks que geram documentos incluem o template de ops/templates/
+  - Tasks que consomem dados incluem o arquivo de data/processed/
+  - Nunca referencie data/raw/ em context_files — agentes não lêem raw diretamente
   # ── Síntese ────────────────────────────────────────────────────────────────
   - CRITICAL: executor != quality_gate em todas as tasks
   - Agrupe por decision_maker para squads coesos

@@ -26,6 +26,8 @@ checklist:
   - "[ ] Agrupar em squads por decision_maker"
   - "[ ] Gerar um agente por squad"
   - "[ ] Gerar uma task por operação (com context_files herdado)"
+  - "[ ] Verificar que nenhum context_file aponta para data/raw/"
+  - "[ ] Verificar que context/playbook.md é o primeiro context_file de tasks que usam regras"
   - "[ ] Gerar um workflow por squad"
   - "[ ] Verificar executor != quality_gate"
   - "[ ] Confirmar com o usuário"
@@ -42,3 +44,8 @@ acceptance_criteria:
 Converter domain-model.yaml em blueprint.yaml.
 O context_files de cada operação é preservado no blueprint
 e será inserido nas tasks geradas pelo Ralph.
+
+O blueprint preserva os context_files inferidos pelo intake. O synthesizer
+pode ajustá-los se identificar que algum caminho não segue a convenção,
+mas nunca deve remover o context/playbook.md de uma task que usa regras
+do domínio.

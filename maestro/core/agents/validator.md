@@ -56,3 +56,10 @@ dependencies:
 ### Agente: id+name+icon (+2) | comandos (+2) | dependencies existem (+2) | principles (+2) | persona (+2)
 ### Task: executor_type (+2) | executor!=quality_gate (+2) | acceptance_criteria (+2) | checklist (+2) | depends_on (+2)
 ### Workflow: steps existem (+3) | sem ciclos (+3) | sequência coerente (+4)
+
+### Validação de estrutura de domínio
+Para cada domínio referenciado nos artefatos, verificar:
+- context_files nunca aponta para data/raw/ (+0 se apontar, bloqueia aprovação)
+- context_files começa com context/playbook.md quando a task usa regras do domínio (+1)
+- Caminhos em context_files seguem a convenção de pastas (+1)
+- Tarefas que geram documentos referenciam ops/templates/ (+1)

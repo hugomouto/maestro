@@ -51,6 +51,78 @@ Se a operação não usa preço, `pricing.md` não é carregado — mesmo estand
 Se `context_files: []`, a task foi projetada para ser executada
 apenas com as informações já contidas nela. Não carregue nada adicional.
 
+## Convenção de estrutura de domínio
+
+Todo domínio gerenciado pelo Maestro segue esta estrutura de pastas:
+
+```
+{dominio}/
+├── context/          ← identidade e regras permanentes do domínio
+├── data/
+│   ├── raw/          ← dados brutos recebidos de fontes externas
+│   ├── processed/    ← dados transformados, prontos para leitura por agentes
+│   └── snapshots/    ← cópias pontuais de estado
+├── ops/
+│   ├── tasks/        ← trabalho em aberto (uma tarefa = um arquivo)
+│   ├── templates/    ← modelos reutilizáveis, nunca modificados diretamente
+│   └── history/      ← tarefas concluídas ou encerradas
+└── reports/
+    ├── weekly/
+    ├── monthly/
+    └── adhoc/
+```
+
+### Onde cada tipo de arquivo vive
+
+| Tipo de arquivo | Pasta correta |
+|-----------------|---------------|
+| Regras, processos, personas | `context/` |
+| Playbook do domínio | `context/playbook.md` |
+| Export de API, CSV bruto | `data/raw/` |
+| Resumo em markdown de dados externos | `data/processed/` |
+| Tarefa em andamento | `ops/tasks/` |
+| Modelo reutilizável | `ops/templates/` |
+| Tarefa concluída | `ops/history/` |
+| Relatório gerado | `reports/{weekly,monthly,adhoc}/` |
+
+### Regra de nomeação
+
+- Sempre minúsculas, hífens em vez de espaços
+- Playbook: sempre `playbook.md`
+- Tarefa ativa: `{descricao}-{identificador}.md`
+- Template: `{nome}-template.md`
+- Relatório: `relatorio-YYYY-MM.md` ou `relatorio-YYYY-WNN.md`
+- Dado processado: `{fonte}-YYYY-MM.md`
+
+### context_files padrão por tipo de task
+
+Tasks que lêem regras do domínio:
+```yaml
+context_files:
+  - ./{dominio}/context/playbook.md
+```
+
+Tasks que geram documentos:
+```yaml
+context_files:
+  - ./{dominio}/context/playbook.md
+  - ./{dominio}/ops/templates/{nome}-template.md
+```
+
+Tasks que analisam dados externos:
+```yaml
+context_files:
+  - ./{dominio}/context/playbook.md
+  - ./{dominio}/data/processed/{fonte}-{periodo}.md
+```
+
+Tasks cross-domínio (um domínio usa template de outro):
+```yaml
+context_files:
+  - ./{dominio-executor}/context/playbook.md
+  - ./{dominio-origem}/ops/templates/{nome}-template.md
+```
+
 ## Impacto esperado
 
 | Cenário | Tokens por execução |

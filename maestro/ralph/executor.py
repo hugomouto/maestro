@@ -7,6 +7,7 @@ import yaml
 from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.prompt import Confirm
 
 console  = Console()
 OUTPUT   = "maestro-workspace/output"
@@ -24,6 +25,16 @@ def run(blueprint_path: str):
         return
 
     console.print(f"[bold]Ralph:[/bold] {len(pending)} artefato(s) para gerar\n")
+
+    # ── Scaffold: cria estrutura de pastas do domínio ─────────────────────────
+    domain_path = Path(".") / domain
+    if domain_path.exists() or Confirm.ask(
+        f"\nCriar estrutura de pastas em ./{domain}/?", default=True
+    ):
+        _scaffold_domain(str(domain_path))
+
+    # ── Scaffold: cria STRUCTURE.md na raiz do projeto ────────────────────────
+    _scaffold_structure_md(Path("."))
 
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as bar:
         job = bar.add_task("Gerando...", total=len(pending))
@@ -257,3 +268,198 @@ def _print_summary(domain, blueprint):
         for t in squad.get("tasks",     []): console.print(f"    [green]tasks/[/green]{t['id']}.md")
         for w in squad.get("workflows", []): console.print(f"    [green]workflows/[/green]{w['id']}.yaml")
     console.print()
+
+
+def _scaffold_domain(domain_path: str):
+    """
+    Cria a estrutura de pastas padrão de um domínio.
+    Chamada pelo Ralph antes de gerar os artefatos.
+    Preserva arquivos existentes — só cria o que falta.
+    """
+    root = Path(domain_path)
+    structure = [
+        "context",
+        "data/raw",
+        "data/processed",
+        "data/snapshots",
+        "ops/tasks",
+        "ops/templates",
+        "ops/history",
+        "reports/weekly",
+        "reports/monthly",
+        "reports/adhoc",
+    ]
+    created = []
+    for sub in structure:
+        folder = root / sub
+        folder.mkdir(parents=True, exist_ok=True)
+        gitkeep = folder / ".gitkeep"
+        if not any(folder.iterdir()) and not gitkeep.exists():
+            gitkeep.touch()
+            created.append(str(folder))
+
+    if created:
+        console.print(f"  [blue]→[/blue] Estrutura criada em {root.name}/")
+    return root
+
+
+def _scaffold_structure_md(project_root: Path):
+    """
+    Cria STRUCTURE.md na raiz do projeto se não existir.
+    Descreve a convenção de pastas para agentes de IA.
+    """
+    path = project_root / "STRUCTURE.md"
+    if path.exists():
+        return
+
+    content = """\
+# STRUCTURE.md
+
+> Documento de referência para agentes de IA operando neste repositório.
+> Descreve onde criar, ler e mover arquivos — independente do domínio de negócio.
+> Gerado automaticamente pelo Maestro. Atualize se a convenção mudar.
+
+---
+
+## Princípio geral
+
+Este repositório é organizado em domínios. Cada domínio representa uma área
+de responsabilidade do sistema. Todos os domínios seguem a mesma estrutura
+interna de subpastas.
+
+Um agente de IA nunca deve assumir onde um arquivo vive — deve consultar
+este documento antes de criar ou ler qualquer arquivo.
+
+---
+
+## Estrutura interna de um domínio
+
+```
+{dominio}/
+├── context/          ← identidade e regras permanentes do domínio
+├── data/
+│   ├── raw/          ← dados brutos recebidos de fontes externas
+│   ├── processed/    ← dados transformados, prontos para leitura por agentes
+│   └── snapshots/    ← cópias pontuais de estado
+├── ops/
+│   ├── tasks/        ← trabalho em aberto (uma tarefa = um arquivo)
+│   ├── templates/    ← modelos reutilizáveis, nunca modificados diretamente
+│   └── history/      ← tarefas concluídas ou encerradas
+└── reports/
+    ├── weekly/
+    ├── monthly/
+    └── adhoc/
+```
+
+---
+
+## Critérios por pasta
+
+### context/
+Arquivos que definem como o domínio funciona: regras, processos, personas,
+glossário, critérios de decisão. Muda raramente (semanas ou meses).
+O arquivo principal é sempre `context/playbook.md`.
+
+Não vai aqui: dados variáveis, arquivos gerados por ferramentas externas,
+rascunhos ou versões intermediárias.
+
+### data/raw/
+Dados brutos recebidos de fontes externas sem transformação: exports de APIs,
+CSVs baixados, dumps. Atualizado por scripts, nunca manualmente.
+
+NUNCA leia arquivos de data/raw/ diretamente em um agente. Use data/processed/.
+
+### data/processed/
+Dados de raw/ transformados em markdown legível por agentes. É aqui que
+um agente lê dados externos. Declare o arquivo específico em context_files
+da task — não carregue a pasta inteira.
+
+### data/snapshots/
+Cópias pontuais de estado do domínio em uma data específica. Consulte
+apenas quando a task pede explicitamente comparação histórica.
+
+### ops/tasks/
+Trabalho em aberto — uma tarefa ativa por arquivo. Quando uma tarefa for
+concluída ou encerrada, mova o arquivo para ops/history/. Nunca delete.
+
+Formato de nome: {descricao-curta}-{identificador}.md
+
+### ops/templates/
+Modelos reutilizáveis. Nunca modifique um template diretamente — leia-o,
+gere uma instância preenchida e salve em ops/tasks/.
+
+Formato de nome: {nome}-template.md
+
+### ops/history/
+Tarefas encerradas, independente do resultado. O resultado (ganhou, perdeu,
+cancelado, motivo) fica registrado dentro do arquivo, não no nome da pasta.
+
+Consulte apenas quando a task pedir explicitamente histórico.
+
+### reports/
+Saídas geradas por agentes ou scripts. Nunca sobrescreva um relatório
+existente — crie um novo com data atualizada.
+
+- weekly/  → relatorio-YYYY-WNN.md
+- monthly/ → relatorio-YYYY-MM.md
+- adhoc/   → nome descritivo do assunto
+
+---
+
+## Regras de nomeação
+
+| Situação | Formato | Exemplo |
+|----------|---------|---------|
+| Playbook | `playbook.md` | `playbook.md` |
+| Tarefa ativa | `{descricao}-{id}.md` | `proposta-acme.md` |
+| Template | `{nome}-template.md` | `proposta-template.md` |
+| Dado processado | `{fonte}-YYYY-MM.md` | `notion-2025-03.md` |
+| Relatório semanal | `relatorio-YYYY-WNN.md` | `relatorio-2025-W14.md` |
+| Relatório mensal | `relatorio-YYYY-MM.md` | `relatorio-2025-03.md` |
+| Snapshot | `snapshot-YYYY-MM-DD.md` | `snapshot-2025-03-01.md` |
+
+Regras gerais: sempre minúsculas, hífens em vez de espaços, sem caracteres especiais.
+
+---
+
+## Context Budget — regra de ouro para agentes
+
+Um agente nunca deve carregar arquivos por precaução. Para cada task:
+
+1. Leia apenas o arquivo da task
+2. Decida uma única vez quais arquivos adicionais são necessários
+3. Carregue apenas esses — sempre os menores e mais específicos
+4. Execute do início ao fim sem recarregar nada
+
+Prioridade de carregamento (do menor para o maior custo):
+
+```
+ops/tasks/{arquivo}.md          ← sempre (é a task em si)
+context/playbook.md             ← quase sempre
+ops/templates/{template}.md     ← quando a task gera um documento
+data/processed/{arquivo}.md     ← quando a task precisa de dados
+reports/                        ← raramente, só com histórico explícito
+data/raw/                       ← NUNCA diretamente
+ops/history/                    ← só quando a task pede histórico
+```
+
+---
+
+## Quando um arquivo cruza domínios
+
+O arquivo vive no domínio que o mantém, não no que o consome.
+O domínio consumidor declara o caminho completo em context_files:
+
+```yaml
+context_files:
+  - ./{dominio-origem}/ops/templates/proposta-template.md
+```
+
+Nunca copie o arquivo para outro domínio. Referencie sempre o original.
+
+---
+
+*Gerado pelo Maestro v{version}. Consulte STRUCTURE.md antes de criar qualquer arquivo.*
+"""
+    path.write_text(content.replace("{version}", "0.1.0"), encoding="utf-8")
+    console.print(f"  [blue]→[/blue] STRUCTURE.md criado na raiz do projeto")

@@ -66,3 +66,18 @@ dependencies:
 | calcular, exportar     | worker         |
 | metodologia específica | clone          |
 | demais                 | agent (default)|
+
+## Regras de agrupamento
+
+O synthesizer agrupa operações por `agent_role`, não por `decision_maker`.
+
+| Campo | Papel |
+|-------|-------|
+| `agent_role` | Define quem executa — determina qual agente é criado |
+| `decision_maker` | Define quem aprova — vira o `quality_gate` da task |
+
+Operações com o mesmo `agent_role` → mesmo agente, tasks diferentes.
+Operações com `agent_role` diferentes → agentes diferentes, mesmo squad.
+
+Um domínio tem um único squad com N agentes especializados.
+Nunca crie um agente "geral" que faz tudo.

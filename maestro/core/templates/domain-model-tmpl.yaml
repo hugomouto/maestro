@@ -3,11 +3,12 @@ domain: "{{DOMAIN_NAME}}"
 operations:
   - id: "{{OPERATION_ID}}"
     intent: "{{OPERATION_INTENT}}"
-    decision_maker: "{{DECISION_MAKER}}"
+    agent_role: "{{AGENT_ROLE}}"          # quem executa — determina o agente gerado
+    decision_maker: "{{DECISION_MAKER}}"  # quem aprova — vira quality_gate da task
     failure_modes:
       - "{{FAILURE_MODE_1}}"
     executor_type: agent
     depends_on: []
-    context_files: []    # teto de contexto — arquivos que o agente PODE carregar
+    context_files: []
 
 sequences: []

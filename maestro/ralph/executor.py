@@ -104,8 +104,9 @@ agent:
 
 persona:
   role: Especialista em {a.get('persona_base', domain)}
-  style: Preciso, orientado a resultados
-  focus: Executar operações de {domain} com qualidade e rastreabilidade
+  scope: Executa apenas as operações listadas em commands — nada além
+  style: Preciso, orientado a resultado, não faz perguntas desnecessárias
+  focus: "{a.get('persona_base', domain)} dentro do domínio {domain}"
 
 core_principles:
   # ── Context Budget Protocol (obrigatório) ──────────────────────────────────
@@ -166,7 +167,8 @@ def _tmpl_task(t, domain):
 task: {t['id']}
 domain: {domain}
 executor_type: {t.get('executor', 'agent')}
-quality_gate: human
+agent: {t.get('agent', 'agent')}
+quality_gate: {t.get('quality_gate', 'human')}
 
 # ── Context Budget ───────────────────────────────────────────────────────────
 # {ctx_note}
@@ -264,9 +266,21 @@ def _print_summary(domain, blueprint):
     console.print(f"\n[bold]Artefatos gerados em {OUTPUT}/{domain}/:[/bold]")
     for squad in blueprint.get("squads", []):
         console.print(f"\n  Squad: [cyan]{squad['id']}[/cyan]")
-        for a in squad.get("agents",    []): console.print(f"    [green]agents/[/green]{a['id']}.md")
-        for t in squad.get("tasks",     []): console.print(f"    [green]tasks/[/green]{t['id']}.md")
-        for w in squad.get("workflows", []): console.print(f"    [green]workflows/[/green]{w['id']}.yaml")
+        console.print(f"  [dim]{len(squad.get('agents', []))} agente(s) · "
+                      f"{len(squad.get('tasks', []))} task(s) · "
+                      f"{len(squad.get('workflows', []))} workflow(s)[/dim]\n")
+        for a in squad.get("agents", []):
+            cmds = ", ".join(a.get("commands", []))
+            console.print(f"    [green]agents/[/green]{a['id']}.md  "
+                          f"[dim]→ {cmds}[/dim]")
+        console.print()
+        for t in squad.get("tasks", []):
+            console.print(f"    [green]tasks/[/green]{t['id']}.md  "
+                          f"[dim]executor: {t.get('agent', '?')}[/dim]")
+        console.print()
+        for w in squad.get("workflows", []):
+            console.print(f"    [green]workflows/[/green]{w['id']}.yaml  "
+                          f"[dim]agente: {w.get('agent', '?')}[/dim]")
     console.print()
 
 

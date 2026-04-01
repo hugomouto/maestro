@@ -2,22 +2,27 @@ domain: "{{DOMAIN_NAME}}"
 version: "0.1.0"
 
 squads:
-  - id: "{{SQUAD_ID}}"
+  - id: "{{DOMAIN_NAME}}-squad"
+
     agents:
-      - id: "{{AGENT_ID}}"
-        persona_base: "{{DECISION_MAKER}}"
+      - id: "{{AGENT_ROLE}}-agent"
+        persona_base: "{{AGENT_ROLE}}"
         commands:
           - "{{OPERATION_ID}}"
+
     tasks:
       - id: "{{OPERATION_ID}}"
         intent: "{{OPERATION_INTENT}}"
         executor: agent
-        quality_gate: "{{AGENT_ID}}"
+        agent: "{{AGENT_ROLE}}-agent"       # quem executa
+        quality_gate: "{{DECISION_MAKER}}"  # quem aprova
         failure_modes:
           - "{{FAILURE_MODE}}"
         depends_on: []
-        context_files: []    # herdado do domain-model — teto de contexto
+        context_files: []
+
     workflows:
-      - id: "fluxo-{{SQUAD_ID}}"
+      - id: "fluxo-{{AGENT_ROLE}}-agent"
+        agent: "{{AGENT_ROLE}}-agent"
         steps:
           - "{{OPERATION_ID}}"

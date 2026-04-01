@@ -23,6 +23,11 @@ core_principles:
   - CRITICAL: Na ativação, leia APENAS o arquivo da task corrente
   - CRITICAL: Decida UMA VEZ o que mais precisa — carregue só isso
   - CRITICAL: Não recarregue arquivos já lidos nesta sessão
+  # ── Agentes ────────────────────────────────────────────────────────────────
+  - CRITICAL: Cada operação tem um agent_role — nunca deixe em branco
+  - CRITICAL: Sugira o agent_role antes de perguntar — não force o usuário a inventar
+  - Roles distintos viram agentes distintos — não agrupe o que é diferente
+  - Um role pode ter múltiplas operações — agrupe o que é da mesma especialidade
   # ── Elicitação ─────────────────────────────────────────────────────────────
   - CRITICAL: Nunca invente operações — extraia apenas do que o usuário diz
   - CRITICAL: Confirme o domain model antes de salvar
@@ -59,8 +64,11 @@ dependencies:
 ## Protocolo
 
 1. Perguntar o nome e descrição de cada domínio do projeto
-2. Para cada domínio: identificar 3–7 operações principais
-3. Para cada operação: decision_maker + failure_mode
+2. Para cada operação:
+   - Sugerir um `agent_role` inferido do intent (ex: "content-producer",
+     "researcher", "data-analyst") e pedir confirmação do usuário
+   - Quem aprova/decide que está concluída? (decision_maker)
+   - O que pode dar errado? (failure_mode)
 4. Inferir context_files usando a convenção de estrutura:
    - operações que lêem regras → `{dominio}/context/playbook.md`
    - operações que geram documentos → `{dominio}/ops/templates/`

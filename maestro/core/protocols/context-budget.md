@@ -5,9 +5,8 @@
 ## O problema que este protocolo resolve
 
 Sem controle, um agente tende a carregar contexto "por precaução":
-carrega a pasta inteira do domínio, relê arquivos já lidos, mantém
-contexto entre tasks. Isso multiplica o consumo de tokens por 5-10x
-sem aumentar a qualidade do resultado.
+carrega a pasta inteira do domínio, relê arquivos já lidos, acessa
+dados brutos diretamente. Isso multiplica o consumo de tokens por 5-10x.
 
 ## O protocolo
 
@@ -30,97 +29,59 @@ PASSO 5  Encerrar — não recarregar nada
 | Sem recarregamento | Um arquivo lido não é lido novamente na mesma execução |
 | Sem cross-domain | Arquivos de outros domínios só com necessidade explícita na task |
 
-## O que context_files significa
-
-`context_files` em uma task é o **teto de permissão** — não uma obrigação.
-O agente avalia quais desses arquivos são relevantes para a execução
-específica e carrega apenas esses.
-
-```yaml
-# Exemplo de task com context_files
-context_files:
-  - ./vendas/context/playbook.md      # carregue se a operação envolve processo de venda
-  - ./vendas/context/pricing.md       # carregue se a operação envolve preço
-  - ./vendas/pipeline/template.md     # carregue se precisa criar um registro no pipeline
-```
-
-Se a operação não usa preço, `pricing.md` não é carregado — mesmo estando na lista.
-
-## Task auto-suficiente
-
-Se `context_files: []`, a task foi projetada para ser executada
-apenas com as informações já contidas nela. Não carregue nada adicional.
-
 ## Convenção de estrutura de domínio
 
-Todo domínio gerenciado pelo Maestro segue esta estrutura de pastas:
+Todo domínio gerenciado pelo Maestro segue esta estrutura:
 
 ```
 {dominio}/
-├── context/          ← identidade e regras permanentes do domínio
+├── context/          ← identidade e regras permanentes
 ├── data/
-│   ├── raw/          ← dados brutos recebidos de fontes externas
-│   ├── processed/    ← dados transformados, prontos para leitura por agentes
+│   ├── raw/          ← dados brutos (NUNCA carregar diretamente)
+│   ├── processed/    ← dados prontos para leitura por agentes
 │   └── snapshots/    ← cópias pontuais de estado
 ├── ops/
-│   ├── tasks/        ← trabalho em aberto (uma tarefa = um arquivo)
-│   ├── templates/    ← modelos reutilizáveis, nunca modificados diretamente
-│   └── history/      ← tarefas concluídas ou encerradas
+│   ├── tasks/        ← trabalho em aberto
+│   ├── templates/    ← modelos reutilizáveis
+│   └── history/      ← tarefas concluídas
 └── reports/
     ├── weekly/
     ├── monthly/
     └── adhoc/
 ```
 
-### Onde cada tipo de arquivo vive
+### Prioridade de carregamento (do menor para o maior custo)
 
-| Tipo de arquivo | Pasta correta |
-|-----------------|---------------|
-| Regras, processos, personas | `context/` |
-| Playbook do domínio | `context/playbook.md` |
-| Export de API, CSV bruto | `data/raw/` |
-| Resumo em markdown de dados externos | `data/processed/` |
-| Tarefa em andamento | `ops/tasks/` |
-| Modelo reutilizável | `ops/templates/` |
-| Tarefa concluída | `ops/history/` |
-| Relatório gerado | `reports/{weekly,monthly,adhoc}/` |
-
-### Regra de nomeação
-
-- Sempre minúsculas, hífens em vez de espaços
-- Playbook: sempre `playbook.md`
-- Tarefa ativa: `{descricao}-{identificador}.md`
-- Template: `{nome}-template.md`
-- Relatório: `relatorio-YYYY-MM.md` ou `relatorio-YYYY-WNN.md`
-- Dado processado: `{fonte}-YYYY-MM.md`
+```
+ops/tasks/{arquivo}.md          ← sempre (é a task em si)
+context/playbook.md             ← quase sempre
+ops/templates/{template}.md     ← quando a task gera um documento
+data/processed/{arquivo}.md     ← quando a task precisa de dados externos
+reports/                        ← raramente, só com histórico explícito
+data/raw/                       ← NUNCA diretamente
+ops/history/                    ← só quando a task pede histórico explícito
+```
 
 ### context_files padrão por tipo de task
 
-Tasks que lêem regras do domínio:
+Task que usa regras do domínio:
 ```yaml
 context_files:
   - ./{dominio}/context/playbook.md
 ```
 
-Tasks que geram documentos:
+Task que gera documento:
 ```yaml
 context_files:
   - ./{dominio}/context/playbook.md
   - ./{dominio}/ops/templates/{nome}-template.md
 ```
 
-Tasks que analisam dados externos:
+Task que analisa dados externos:
 ```yaml
 context_files:
   - ./{dominio}/context/playbook.md
   - ./{dominio}/data/processed/{fonte}-{periodo}.md
-```
-
-Tasks cross-domínio (um domínio usa template de outro):
-```yaml
-context_files:
-  - ./{dominio-executor}/context/playbook.md
-  - ./{dominio-origem}/ops/templates/{nome}-template.md
 ```
 
 ## Impacto esperado

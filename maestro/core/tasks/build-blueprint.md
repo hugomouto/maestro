@@ -3,10 +3,6 @@ task: build-blueprint
 executor: "@synthesizer"
 executor_type: agent
 quality_gate: human
-
-# ── Context Budget ────────────────────────────────────────────────────────────
-# Carregue APENAS o domain-model.yaml do domínio sendo sintetizado.
-# Não carregue outros domain-models ou arquivos do domínio.
 context_files:
   - maestro-workspace/domain-models/{domain}.yaml
 
@@ -22,30 +18,26 @@ saida:
 
 checklist:
   - "[ ] Ler domain-model.yaml (única leitura)"
-  - "[ ] Inferir executor_type de cada operação"
-  - "[ ] Agrupar em squads por decision_maker"
-  - "[ ] Gerar um agente por squad"
+  - "[ ] Agrupar operações por agent_role"
+  - "[ ] Gerar um agente por agent_role distinto"
   - "[ ] Gerar uma task por operação (com context_files herdado)"
   - "[ ] Verificar que nenhum context_file aponta para data/raw/"
-  - "[ ] Verificar que context/playbook.md é o primeiro context_file de tasks que usam regras"
-  - "[ ] Gerar um workflow por squad"
-  - "[ ] Verificar executor != quality_gate"
+  - "[ ] Verificar context/playbook.md é o primeiro context_file"
+  - "[ ] Gerar um workflow por agente"
   - "[ ] Confirmar com o usuário"
 
 acceptance_criteria:
-  - Todo squad tem pelo menos 1 agente, 1 task e 1 workflow
-  - Nenhuma task tem executor igual ao quality_gate
-  - context_files de cada operação está preservado no blueprint
+  - Todo agente tem agent_role distinto
+  - Nenhuma task tem agent igual ao quality_gate
+  - context_files de cada operação está preservado
 ---
 
 # build-blueprint
 
 ## Propósito
-Converter domain-model.yaml em blueprint.yaml.
-O context_files de cada operação é preservado no blueprint
-e será inserido nas tasks geradas pelo Ralph.
+Converter domain-model.yaml em blueprint.yaml com múltiplos agentes
+especializados. Agrupamento por agent_role — não por decision_maker.
 
-O blueprint preserva os context_files inferidos pelo intake. O synthesizer
-pode ajustá-los se identificar que algum caminho não segue a convenção,
-mas nunca deve remover o context/playbook.md de uma task que usa regras
-do domínio.
+## Regra central
+agent_role → quem executa → determina o agente gerado
+decision_maker → quem aprova → vira quality_gate da task

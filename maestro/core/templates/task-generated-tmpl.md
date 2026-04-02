@@ -1,12 +1,13 @@
 ---
 task: {{TASK_ID}}
 domain: {{DOMAIN}}
+agent: {{AGENT_ID}}
 executor_type: {{EXECUTOR_TYPE}}
-quality_gate: human
+quality_gate: {{QUALITY_GATE}}
 
 # ── Context Budget ────────────────────────────────────────────────────────────
-# Teto de contexto: carregue apenas o necessário entre esses arquivos.
-# Se a lista estiver vazia, a task é auto-suficiente.
+# Teto de contexto — carregue apenas o necessário, uma única vez.
+# NUNCA carregue data/raw/ diretamente.
 context_files:
   {{CONTEXT_FILES}}
 
@@ -26,10 +27,9 @@ depends_on:
   {{DEPENDS_ON}}
 
 checklist:
-  - "[ ] Ler task (já feito)"
+  - "[ ] Ler task (feito)"
   - "[ ] Avaliar context_files — carregar só o necessário (UMA VEZ)"
   - "[ ] Executar operação principal"
-  - "[ ] Confirmar resultado"
   - "[ ] Registrar saída"
 
 acceptance_criteria:
@@ -44,6 +44,6 @@ acceptance_criteria:
 
 ## Execução
 
-1. Avalie `context_files` — carregue apenas o necessário para esta execução
-2. Execute
+1. Avalie `context_files` — carregue apenas o necessário
+2. Execute conforme `{{DOMAIN}}/context/playbook.md`
 3. Registre e encerre

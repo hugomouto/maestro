@@ -1,17 +1,31 @@
 """
 Ralph Executor — loop autônomo de geração de artefatos.
-Respeita o Context Budget ao gerar tasks: inclui context_files como teto.
+Cria a estrutura física de pastas do domínio antes de gerar os artefatos.
+Suporta múltiplos agentes especializados via agent_role.
 """
 import json
 import yaml
 from pathlib import Path
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 console  = Console()
 OUTPUT   = "maestro-workspace/output"
 PROGRESS = "maestro-workspace/ralph-progress.json"
+
+DOMAIN_STRUCTURE = [
+    "context",
+    "data/raw",
+    "data/processed",
+    "data/snapshots",
+    "ops/tasks",
+    "ops/templates",
+    "ops/history",
+    "reports/weekly",
+    "reports/monthly",
+    "reports/adhoc",
+]
 
 
 def run(blueprint_path: str):
@@ -26,16 +40,17 @@ def run(blueprint_path: str):
 
     console.print(f"[bold]Ralph:[/bold] {len(pending)} artefato(s) para gerar\n")
 
-    # ── Scaffold: cria estrutura de pastas do domínio ─────────────────────────
+    # ── Scaffold: estrutura física do domínio ─────────────────────────────────
     domain_path = Path(".") / domain
-    if domain_path.exists() or Confirm.ask(
-        f"\nCriar estrutura de pastas em ./{domain}/?", default=True
+    if not domain_path.exists() or Confirm.ask(
+        f"Criar/atualizar estrutura de pastas em ./{domain}/?", default=True
     ):
-        _scaffold_domain(str(domain_path))
+        _scaffold_domain(domain_path)
 
-    # ── Scaffold: cria STRUCTURE.md na raiz do projeto ────────────────────────
+    # ── Scaffold: STRUCTURE.md na raiz do projeto ─────────────────────────────
     _scaffold_structure_md(Path("."))
 
+    # ── Geração de artefatos ──────────────────────────────────────────────────
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as bar:
         job = bar.add_task("Gerando...", total=len(pending))
         for artifact in pending:
@@ -49,6 +64,118 @@ def run(blueprint_path: str):
             bar.advance(job)
 
     _print_summary(domain, blueprint)
+
+
+def _scaffold_domain(root: Path):
+    """Cria a estrutura de pastas padrão de um domínio. Preserva o que existe."""
+    for sub in DOMAIN_STRUCTURE:
+        folder = root / sub
+        folder.mkdir(parents=True, exist_ok=True)
+        gitkeep = folder / ".gitkeep"
+        if not list(folder.iterdir()) and not gitkeep.exists():
+            gitkeep.touch()
+    console.print(f"  [blue]→[/blue] Estrutura de pastas criada em [cyan]{root.name}/[/cyan]")
+
+
+def _scaffold_structure_md(project_root: Path):
+    """Cria STRUCTURE.md na raiz do projeto se não existir."""
+    path = project_root / "STRUCTURE.md"
+    if path.exists():
+        return
+
+    content = """\
+# STRUCTURE.md
+
+> Documento de referência para agentes de IA operando neste repositório.
+> Gerado automaticamente pelo Maestro. Atualize se a convenção mudar.
+
+---
+
+## Princípio geral
+
+Este repositório é organizado em domínios. Todos seguem a mesma estrutura interna.
+Um agente nunca deve assumir onde um arquivo vive — consulte este documento primeiro.
+
+---
+
+## Estrutura interna de um domínio
+
+```
+{dominio}/
+├── context/          ← identidade e regras permanentes do domínio
+├── data/
+│   ├── raw/          ← dados brutos de fontes externas (NUNCA leia diretamente)
+│   ├── processed/    ← dados transformados em markdown, prontos para agentes
+│   └── snapshots/    ← cópias pontuais de estado para comparação histórica
+├── ops/
+│   ├── tasks/        ← trabalho em aberto (uma tarefa = um arquivo)
+│   ├── templates/    ← modelos reutilizáveis, nunca modificados diretamente
+│   └── history/      ← tarefas concluídas ou encerradas
+└── reports/
+    ├── weekly/       ← relatorio-YYYY-WNN.md
+    ├── monthly/      ← relatorio-YYYY-MM.md
+    └── adhoc/        ← nome descritivo do assunto
+```
+
+---
+
+## Critérios por pasta
+
+| Pasta | O que vai | O que NÃO vai |
+|-------|-----------|---------------|
+| `context/` | Regras, playbook, personas, glossário | Dados variáveis, rascunhos |
+| `data/raw/` | Exports de API, CSVs brutos | Qualquer coisa processada |
+| `data/processed/` | Resumos em markdown de dados externos | Dados brutos |
+| `data/snapshots/` | Estado do domínio em data específica | Dados atuais |
+| `ops/tasks/` | Trabalho em aberto | Tarefas concluídas, templates |
+| `ops/templates/` | Modelos reutilizáveis | Instâncias preenchidas |
+| `ops/history/` | Tarefas encerradas (com resultado dentro) | Trabalho em aberto |
+| `reports/` | Saídas geradas por agentes | Dados brutos, work-in-progress |
+
+---
+
+## Prioridade de leitura para agentes
+
+```
+ops/tasks/{arquivo}.md          ← sempre (é a task em si)
+context/playbook.md             ← quase sempre
+ops/templates/{template}.md     ← ao gerar documentos
+data/processed/{arquivo}.md     ← ao consumir dados externos
+reports/                        ← só com histórico explícito
+data/raw/                       ← NUNCA
+ops/history/                    ← só quando a task pede histórico
+```
+
+---
+
+## Nomeação de arquivos
+
+- Sempre minúsculas, hífens em vez de espaços
+- Playbook: `playbook.md`
+- Tarefa ativa: `{descricao}-{id}.md`
+- Template: `{nome}-template.md`
+- Dado processado: `{fonte}-YYYY-MM.md`
+- Relatório: `relatorio-YYYY-MM.md` ou `relatorio-YYYY-WNN.md`
+
+---
+
+## Arquivos que cruzam domínios
+
+O arquivo vive no domínio que o mantém. O consumidor referencia via context_files:
+
+```yaml
+context_files:
+  - ./{dominio-origem}/ops/templates/{nome}-template.md
+```
+
+Nunca copie — sempre referencie o original.
+
+---
+
+*Gerado pelo Maestro. Consulte antes de criar qualquer arquivo.*
+"""
+    path.write_text(content, encoding="utf-8")
+    console.print(f"  [blue]→[/blue] STRUCTURE.md criado na raiz do projeto")
 
 
 def _get_pending(blueprint, progress):
@@ -81,14 +208,13 @@ def _artifact_path(domain, artifact):
 
 
 def _tmpl_agent(a, domain):
-    """
-    Agentes gerados incluem o Context Budget Protocol nos core_principles.
-    """
     commands = "\n".join(
         f"  - name: {cmd}\n    description: Executa operação {cmd}"
         for cmd in a.get("commands", [])
     )
     deps = "\n".join(f"    - {cmd}.md" for cmd in a.get("commands", []))
+    role = a.get("persona_base", a["id"])
+
     return f"""\
 # {a['id']}
 
@@ -98,33 +224,33 @@ def _tmpl_agent(a, domain):
 agent:
   name: {a['id']}
   id: {a['id']}
-  title: "{a.get('persona_base', a['id']).title()} Agent"
+  title: "{role.replace('-', ' ').title()} Agent"
   icon: 🤖
-  whenToUse: "Use para operações de {domain} sob responsabilidade de {a.get('persona_base', 'gestor')}"
+  whenToUse: "Use para operações de {role} no domínio {domain}"
 
 persona:
-  role: Especialista em {a.get('persona_base', domain)}
+  role: Especialista em {role}
   scope: Executa apenas as operações listadas em commands — nada além
   style: Preciso, orientado a resultado, não faz perguntas desnecessárias
-  focus: "{a.get('persona_base', domain)} dentro do domínio {domain}"
+  focus: "{role} dentro do domínio {domain}"
 
 core_principles:
-  # ── Context Budget Protocol (obrigatório) ──────────────────────────────────
+  # ── Context Budget Protocol ────────────────────────────────────────────────
   - CRITICAL: Leia o arquivo da task PRIMEIRO e apenas ele na ativação
-  - CRITICAL: Decida UMA ÚNICA VEZ quais arquivos adicionais são necessários
-  - CRITICAL: Carregue apenas o que está listado em context_files da task
-  - CRITICAL: Nunca recarregue um arquivo já lido durante a mesma execução
-  - CRITICAL: Nunca carregue arquivos de outros domínios sem necessidade explícita
+  - CRITICAL: Decida UMA VEZ quais arquivos de context_files são necessários
+  - CRITICAL: Carregue apenas o necessário — nunca por precaução
+  - CRITICAL: Não recarregue arquivos já lidos durante a mesma execução
+  - CRITICAL: Nunca carregue data/raw/ — use sempre data/processed/
   # ── Operação ───────────────────────────────────────────────────────────────
-  - Execute apenas as operações listadas nos seus comandos
-  - Sempre registre o resultado de cada operação
-  - Confirme com o usuário antes de operações irreversíveis
+  - Execute apenas as operações listadas nos seus commands
+  - Arquivos novos vão em ops/tasks/ — nunca em context/ ou data/
+  - Tarefas concluídas movem para ops/history/ — nunca delete
 
 startup_sequence:
-  - Ler o arquivo da task corrente
+  - Ler o arquivo da task corrente (única leitura no startup)
   - Avaliar context_files declarados na task
-  - Carregar apenas os necessários para esta execução específica
-  - HALT até receber comando do usuário
+  - Carregar apenas os necessários para esta execução
+  - HALT — aguardar comando
 
 commands:
 {commands}
@@ -143,41 +269,35 @@ dependencies:
 
 
 def _tmpl_task(t, domain):
-    """
-    Tasks geradas incluem context_files como teto de carregamento.
-    O agente pode carregar MENOS que isso, mas nunca mais.
-    """
     failures      = "\n".join(f"  - {f}" for f in t.get("failure_modes", ["falha genérica"]))
     deps          = t.get("depends_on", [])
     deps_str      = "\n".join(f"  - {d}" for d in deps) if deps else "  []"
     context_files = t.get("context_files", [])
+    agent_id      = t.get("agent", "agent")
+    quality_gate  = t.get("quality_gate", "gestor")
 
     if context_files:
-        ctx_str = "\n".join(f"  - {f}" for f in context_files)
-        ctx_note = (
-            "# Teto de contexto: o agente decide o que é relevante entre esses arquivos.\n"
-            "# Carrega apenas o necessário, uma única vez, antes de executar.\n"
-        )
+        ctx_str  = "\n".join(f"  - {f}" for f in context_files)
+        ctx_note = "# Teto de contexto — carregue apenas o necessário, uma única vez."
     else:
-        ctx_str  = "  []  # task auto-suficiente — não carregue arquivos adicionais"
-        ctx_note = "# Task auto-suficiente: não requer arquivos externos.\n"
+        ctx_str  = "  []  # task auto-suficiente"
+        ctx_note = "# Task auto-suficiente — não carregue arquivos adicionais."
 
     return f"""\
 ---
 task: {t['id']}
 domain: {domain}
+agent: {agent_id}
 executor_type: {t.get('executor', 'agent')}
-agent: {t.get('agent', 'agent')}
-quality_gate: {t.get('quality_gate', 'human')}
+quality_gate: {quality_gate}
 
-# ── Context Budget ───────────────────────────────────────────────────────────
-# {ctx_note}
-# REGRA: Leia este arquivo primeiro. Avalie context_files. Carregue só o
-# necessário. Execute. Não recarregue nada durante a execução.
+# ── Context Budget ────────────────────────────────────────────────────────────
+{ctx_note}
+# REGRA: Leia esta task. Avalie context_files. Carregue só o necessário. Execute.
 context_files:
 {ctx_str}
 
-# ── Definição da task ─────────────────────────────────────────────────────────
+# ── Definição ─────────────────────────────────────────────────────────────────
 entrada:
   - campo: contexto
     tipo: string
@@ -186,7 +306,7 @@ entrada:
 saida:
   - campo: resultado
     tipo: object
-    destino: maestro-workspace/output/{domain}/results/{t['id']}.json
+    destino: {domain}/reports/adhoc/{t['id']}.md
 
 failure_modes:
 {failures}
@@ -195,16 +315,15 @@ depends_on:
 {deps_str}
 
 checklist:
-  - "[ ] Validar entrada"
-  - "[ ] Carregar context_files necessários (UMA VEZ)"
+  - "[ ] Ler task (feito)"
+  - "[ ] Avaliar context_files — carregar só o necessário (UMA VEZ)"
   - "[ ] Executar operação principal"
   - "[ ] Confirmar resultado"
-  - "[ ] Registrar saída"
+  - "[ ] Registrar saída em reports/ ou ops/history/"
 
 acceptance_criteria:
   - Resultado documentado e rastreável
-  - Failure modes verificados
-  - Nenhum arquivo carregado além dos declarados em context_files
+  - Nenhum arquivo carregado além de context_files
 ---
 
 # {t['id']}
@@ -212,18 +331,11 @@ acceptance_criteria:
 ## Propósito
 {t.get('intent', 'Executar operação do domínio ' + domain)}
 
-## Protocolo de execução
+## Execução
 
-### 1. Preparação de contexto (fazer UMA única vez)
-Antes de executar, avalie quais arquivos de `context_files` são realmente
-necessários para esta execução específica. Carregue apenas esses.
-Não carregue todos por precaução.
-
-### 2. Execução
-Execute a operação conforme as regras do domínio `{domain}`.
-
-### 3. Saída
-Registre o resultado. Encerre sem recarregar nada.
+1. Avalie `context_files` — carregue apenas o necessário
+2. Execute conforme as regras em `{domain}/context/playbook.md`
+3. Registre o resultado e encerre
 """
 
 
@@ -232,10 +344,12 @@ def _tmpl_workflow(w, domain):
         f"  - step: {i+1}\n    task: {s}\n    on_failure: halt"
         for i, s in enumerate(w.get("steps", []))
     )
+    agent = w.get("agent", "agent")
     return f"""\
 # {w['id']}
 
 domain: {domain}
+agent: {agent}
 version: "0.1.0"
 
 steps:
@@ -265,215 +379,26 @@ def _save_progress(blueprint_path, data):
 def _print_summary(domain, blueprint):
     console.print(f"\n[bold]Artefatos gerados em {OUTPUT}/{domain}/:[/bold]")
     for squad in blueprint.get("squads", []):
-        console.print(f"\n  Squad: [cyan]{squad['id']}[/cyan]")
-        console.print(f"  [dim]{len(squad.get('agents', []))} agente(s) · "
-                      f"{len(squad.get('tasks', []))} task(s) · "
-                      f"{len(squad.get('workflows', []))} workflow(s)[/dim]\n")
+        n_agents    = len(squad.get("agents",    []))
+        n_tasks     = len(squad.get("tasks",     []))
+        n_workflows = len(squad.get("workflows", []))
+        console.print(
+            f"\n  Squad: [cyan]{squad['id']}[/cyan]  "
+            f"[dim]{n_agents} agente(s) · {n_tasks} task(s) · {n_workflows} workflow(s)[/dim]\n"
+        )
         for a in squad.get("agents", []):
             cmds = ", ".join(a.get("commands", []))
-            console.print(f"    [green]agents/[/green]{a['id']}.md  "
-                          f"[dim]→ {cmds}[/dim]")
+            console.print(f"    [green]agents/[/green]{a['id']}.md  [dim]→ {cmds}[/dim]")
         console.print()
         for t in squad.get("tasks", []):
-            console.print(f"    [green]tasks/[/green]{t['id']}.md  "
-                          f"[dim]executor: {t.get('agent', '?')}[/dim]")
+            console.print(
+                f"    [green]tasks/[/green]{t['id']}.md  "
+                f"[dim]executor: {t.get('agent', '?')}[/dim]"
+            )
         console.print()
         for w in squad.get("workflows", []):
-            console.print(f"    [green]workflows/[/green]{w['id']}.yaml  "
-                          f"[dim]agente: {w.get('agent', '?')}[/dim]")
+            console.print(
+                f"    [green]workflows/[/green]{w['id']}.yaml  "
+                f"[dim]agente: {w.get('agent', '?')}[/dim]"
+            )
     console.print()
-
-
-def _scaffold_domain(domain_path: str):
-    """
-    Cria a estrutura de pastas padrão de um domínio.
-    Chamada pelo Ralph antes de gerar os artefatos.
-    Preserva arquivos existentes — só cria o que falta.
-    """
-    root = Path(domain_path)
-    structure = [
-        "context",
-        "data/raw",
-        "data/processed",
-        "data/snapshots",
-        "ops/tasks",
-        "ops/templates",
-        "ops/history",
-        "reports/weekly",
-        "reports/monthly",
-        "reports/adhoc",
-    ]
-    created = []
-    for sub in structure:
-        folder = root / sub
-        folder.mkdir(parents=True, exist_ok=True)
-        gitkeep = folder / ".gitkeep"
-        if not any(folder.iterdir()) and not gitkeep.exists():
-            gitkeep.touch()
-            created.append(str(folder))
-
-    if created:
-        console.print(f"  [blue]→[/blue] Estrutura criada em {root.name}/")
-    return root
-
-
-def _scaffold_structure_md(project_root: Path):
-    """
-    Cria STRUCTURE.md na raiz do projeto se não existir.
-    Descreve a convenção de pastas para agentes de IA.
-    """
-    path = project_root / "STRUCTURE.md"
-    if path.exists():
-        return
-
-    content = """\
-# STRUCTURE.md
-
-> Documento de referência para agentes de IA operando neste repositório.
-> Descreve onde criar, ler e mover arquivos — independente do domínio de negócio.
-> Gerado automaticamente pelo Maestro. Atualize se a convenção mudar.
-
----
-
-## Princípio geral
-
-Este repositório é organizado em domínios. Cada domínio representa uma área
-de responsabilidade do sistema. Todos os domínios seguem a mesma estrutura
-interna de subpastas.
-
-Um agente de IA nunca deve assumir onde um arquivo vive — deve consultar
-este documento antes de criar ou ler qualquer arquivo.
-
----
-
-## Estrutura interna de um domínio
-
-```
-{dominio}/
-├── context/          ← identidade e regras permanentes do domínio
-├── data/
-│   ├── raw/          ← dados brutos recebidos de fontes externas
-│   ├── processed/    ← dados transformados, prontos para leitura por agentes
-│   └── snapshots/    ← cópias pontuais de estado
-├── ops/
-│   ├── tasks/        ← trabalho em aberto (uma tarefa = um arquivo)
-│   ├── templates/    ← modelos reutilizáveis, nunca modificados diretamente
-│   └── history/      ← tarefas concluídas ou encerradas
-└── reports/
-    ├── weekly/
-    ├── monthly/
-    └── adhoc/
-```
-
----
-
-## Critérios por pasta
-
-### context/
-Arquivos que definem como o domínio funciona: regras, processos, personas,
-glossário, critérios de decisão. Muda raramente (semanas ou meses).
-O arquivo principal é sempre `context/playbook.md`.
-
-Não vai aqui: dados variáveis, arquivos gerados por ferramentas externas,
-rascunhos ou versões intermediárias.
-
-### data/raw/
-Dados brutos recebidos de fontes externas sem transformação: exports de APIs,
-CSVs baixados, dumps. Atualizado por scripts, nunca manualmente.
-
-NUNCA leia arquivos de data/raw/ diretamente em um agente. Use data/processed/.
-
-### data/processed/
-Dados de raw/ transformados em markdown legível por agentes. É aqui que
-um agente lê dados externos. Declare o arquivo específico em context_files
-da task — não carregue a pasta inteira.
-
-### data/snapshots/
-Cópias pontuais de estado do domínio em uma data específica. Consulte
-apenas quando a task pede explicitamente comparação histórica.
-
-### ops/tasks/
-Trabalho em aberto — uma tarefa ativa por arquivo. Quando uma tarefa for
-concluída ou encerrada, mova o arquivo para ops/history/. Nunca delete.
-
-Formato de nome: {descricao-curta}-{identificador}.md
-
-### ops/templates/
-Modelos reutilizáveis. Nunca modifique um template diretamente — leia-o,
-gere uma instância preenchida e salve em ops/tasks/.
-
-Formato de nome: {nome}-template.md
-
-### ops/history/
-Tarefas encerradas, independente do resultado. O resultado (ganhou, perdeu,
-cancelado, motivo) fica registrado dentro do arquivo, não no nome da pasta.
-
-Consulte apenas quando a task pedir explicitamente histórico.
-
-### reports/
-Saídas geradas por agentes ou scripts. Nunca sobrescreva um relatório
-existente — crie um novo com data atualizada.
-
-- weekly/  → relatorio-YYYY-WNN.md
-- monthly/ → relatorio-YYYY-MM.md
-- adhoc/   → nome descritivo do assunto
-
----
-
-## Regras de nomeação
-
-| Situação | Formato | Exemplo |
-|----------|---------|---------|
-| Playbook | `playbook.md` | `playbook.md` |
-| Tarefa ativa | `{descricao}-{id}.md` | `proposta-acme.md` |
-| Template | `{nome}-template.md` | `proposta-template.md` |
-| Dado processado | `{fonte}-YYYY-MM.md` | `notion-2025-03.md` |
-| Relatório semanal | `relatorio-YYYY-WNN.md` | `relatorio-2025-W14.md` |
-| Relatório mensal | `relatorio-YYYY-MM.md` | `relatorio-2025-03.md` |
-| Snapshot | `snapshot-YYYY-MM-DD.md` | `snapshot-2025-03-01.md` |
-
-Regras gerais: sempre minúsculas, hífens em vez de espaços, sem caracteres especiais.
-
----
-
-## Context Budget — regra de ouro para agentes
-
-Um agente nunca deve carregar arquivos por precaução. Para cada task:
-
-1. Leia apenas o arquivo da task
-2. Decida uma única vez quais arquivos adicionais são necessários
-3. Carregue apenas esses — sempre os menores e mais específicos
-4. Execute do início ao fim sem recarregar nada
-
-Prioridade de carregamento (do menor para o maior custo):
-
-```
-ops/tasks/{arquivo}.md          ← sempre (é a task em si)
-context/playbook.md             ← quase sempre
-ops/templates/{template}.md     ← quando a task gera um documento
-data/processed/{arquivo}.md     ← quando a task precisa de dados
-reports/                        ← raramente, só com histórico explícito
-data/raw/                       ← NUNCA diretamente
-ops/history/                    ← só quando a task pede histórico
-```
-
----
-
-## Quando um arquivo cruza domínios
-
-O arquivo vive no domínio que o mantém, não no que o consome.
-O domínio consumidor declara o caminho completo em context_files:
-
-```yaml
-context_files:
-  - ./{dominio-origem}/ops/templates/proposta-template.md
-```
-
-Nunca copie o arquivo para outro domínio. Referencie sempre o original.
-
----
-
-*Gerado pelo Maestro v{version}. Consulte STRUCTURE.md antes de criar qualquer arquivo.*
-"""
-    path.write_text(content.replace("{version}", "0.1.0"), encoding="utf-8")
-    console.print(f"  [blue]→[/blue] STRUCTURE.md criado na raiz do projeto")

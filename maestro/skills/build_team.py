@@ -1,6 +1,7 @@
 """
 Skill: /MAESTRO-build-team
 Camada 1 → Camada 2 → Camada 3 (Ralph)
+Gera múltiplos agentes especializados por domínio usando agent_role.
 """
 from pathlib import Path
 from rich.console import Console
@@ -34,7 +35,7 @@ def run(domain=None, config_path="maestro.config.yaml", auto=False):
 
     operations_enriched = _enrich_operations(operations, domain)
     sequences           = _elicit_sequences(operations_enriched)
-    context_hints       = _elicit_context_hints(operations_enriched)
+    context_hints       = _infer_context_files(operations_enriched, domain)
     domain_model        = _build_domain_model(domain, operations_enriched, sequences, context_hints)
     model_path          = _save_domain_model(domain, domain_model)
 
@@ -112,11 +113,11 @@ def _infer_agent_role(intent: str, domain: str) -> str:
     intent_lower = intent.lower()
 
     ROLE_RULES = [
-        (["pesquis", "mercado", "concorrên", "benchm", "research"],  "researcher"),
+        (["pesquis", "mercado", "concorrên", "benchm", "research"],   "researcher"),
         (["estratég", "planejam", "campanha", "calendár", "strategy"], "strategist"),
         (["dado", "métric", "analís", "relatór", "performance",
-          "orgânic", "pago", "tráfego"],                              "data-analyst"),
-        (["conteúd", "post", "copy", "texto", "redaç"],               "content-producer"),
+          "orgânic", "pago", "tráfego"],                               "data-analyst"),
+        (["conteúd", "post", "copy", "texto", "redaç"],                "content-producer"),
         (["instagram", "reels", "stories", "feed"],                    "instagram-agent"),
         (["linkedin", "artigo", "newsletter"],                         "linkedin-agent"),
         (["vend", "proposta", "lead", "prospect", "crm"],              "sales-agent"),
@@ -124,17 +125,15 @@ def _infer_agent_role(intent: str, domain: str) -> str:
         (["operas", "process", "fornec", "estoque", "logíst"],         "ops-agent"),
         (["produto", "roadmap", "feature", "sprint", "backlog"],       "product-agent"),
         (["aprova", "autoriz", "valid", "revis", "qualid"],            "reviewer"),
-        (["export", "import", "integr", "sincron", "dados"],           "data-worker"),
+        (["export", "import", "integr", "sincron"],                    "data-worker"),
     ]
 
     for keywords, role in ROLE_RULES:
         if any(kw in intent_lower for kw in keywords):
             return role
 
-    # fallback: usa a primeira palavra do intent como role
     first_word = intent_lower.strip().split()[0] if intent_lower.strip() else domain
-    slug = first_word.replace(" ", "-")[:20]
-    return f"{slug}-agent"
+    return f"{first_word[:20].replace(' ', '-')}-agent"
 
 
 def _enrich_operations(operations, domain):
@@ -143,14 +142,12 @@ def _enrich_operations(operations, domain):
     for op in operations:
         console.print(f"  [cyan]{op}[/cyan]")
 
-        # Sugere agent_role e deixa o usuário confirmar ou editar
         suggested_role = _infer_agent_role(op, domain)
         console.print(f"    [dim]Agente sugerido: {suggested_role}[/dim]")
         agent_role = Prompt.ask(
             "    Agente que executa (confirme ou renomeie)",
             default=suggested_role
         )
-
         decision_maker = Prompt.ask(
             "    Quem aprova/decide que está concluída?",
             default="gestor"
@@ -169,6 +166,33 @@ def _enrich_operations(operations, domain):
             "failure_modes":  [failure],
         })
     return enriched
+
+
+def _infer_context_files(operations, domain):
+    """
+    Infere context_files usando a convenção de estrutura de domínio.
+    Não pergunta ao usuário — determina pelo tipo de operação.
+    """
+    hints = {}
+    for op in operations:
+        intent_lower = op["intent"].lower()
+        role         = op.get("agent_role", "")
+        files        = [f"./{domain}/context/playbook.md"]
+
+        # operações que geram documentos → incluir template se existir
+        if any(kw in intent_lower for kw in ["criar", "gerar", "redigir", "produzir", "escrever", "montar"]):
+            files.append(f"./{domain}/ops/templates/")
+
+        # operações que consomem dados externos → incluir processed
+        if any(kw in intent_lower for kw in ["analís", "métric", "dado", "relatór", "performance", "resultado"]):
+            files.append(f"./{domain}/data/processed/")
+
+        # operações que consultam histórico
+        if any(kw in intent_lower for kw in ["históric", "anterior", "comparar", "evolução"]):
+            files.append(f"./{domain}/data/snapshots/")
+
+        hints[op["id"]] = files
+    return hints
 
 
 def _elicit_sequences(operations):
@@ -193,39 +217,6 @@ def _elicit_sequences(operations):
     return sequences
 
 
-def _elicit_context_hints(operations):
-    """
-    Pergunta ao usuário quais arquivos de contexto cada operação pode precisar.
-    Esses hints viram context_files nas tasks geradas — limitando o que
-    o agente pode carregar durante a execução.
-    """
-    console.print("\n[bold]Context Budget — arquivos de contexto por operação:[/bold]")
-    console.print(
-        "[dim]Para cada operação, informe caminhos de arquivos que o agente\n"
-        "PODE precisar consultar. Deixe vazio se a task é auto-suficiente.\n"
-        "Esses arquivos serão o TETO de contexto — o agente carrega só o necessário.[/dim]\n"
-    )
-
-    hints = {}
-    for op in operations:
-        console.print(f"  [cyan]{op['id']}[/cyan]")
-        files = []
-        while True:
-            f = Prompt.ask(
-                "    Arquivo de contexto (caminho relativo, ou Enter para terminar)",
-                default=""
-            )
-            if not f:
-                break
-            files.append(f)
-        hints[op["id"]] = files
-        if files:
-            console.print(f"    [dim]→ {len(files)} arquivo(s) registrado(s)[/dim]")
-        console.print()
-
-    return hints
-
-
 def _build_domain_model(domain, operations, sequences, context_hints):
     EXECUTOR_RULES = {
         "aprovar":   "human",
@@ -233,6 +224,7 @@ def _build_domain_model(domain, operations, sequences, context_hints):
         "calcular":  "worker",
         "exportar":  "worker",
         "processar": "worker",
+        "sincroniz": "worker",
         "analisar":  "agent",
         "revisar":   "clone",
         "validar":   "agent",
@@ -260,20 +252,18 @@ def _synthesize(domain_model):
     operations = domain_model["operations"]
 
     # Agrupa por agent_role — cada role vira um agente distinto
-    # Fallback para decision_maker se agent_role não estiver presente
-    # (compatibilidade com domain-models antigos)
     agents_map = {}
     for op in operations:
         role = op.get("agent_role") or op.get("decision_maker", "geral")
         agents_map.setdefault(role, []).append(op)
 
-    # Um único squad por domínio contendo todos os agentes especializados
-    squad_id = f"{domain}-squad"
-    agents   = []
-    tasks    = []
+    squad_id  = f"{domain}-squad"
+    agents    = []
+    tasks     = []
+    workflows = []
 
     for role, ops in agents_map.items():
-        agent_id = f"{role}-agent" if not role.endswith("-agent") else role
+        agent_id = role if role.endswith("-agent") else f"{role}-agent"
 
         agents.append({
             "id":           agent_id,
@@ -286,17 +276,13 @@ def _synthesize(domain_model):
                 "id":            op["id"],
                 "intent":        op["intent"],
                 "executor":      op["executor_type"],
-                "agent":         agent_id,        # ← qual agente executa
+                "agent":         agent_id,
                 "quality_gate":  op.get("decision_maker", "gestor"),
                 "failure_modes": op.get("failure_modes", ["falha genérica"]),
                 "depends_on":    op.get("depends_on", []),
                 "context_files": op.get("context_files", []),
             })
 
-    # Um workflow por agente (suas tasks em sequência)
-    workflows = []
-    for role, ops in agents_map.items():
-        agent_id = f"{role}-agent" if not role.endswith("-agent") else role
         workflows.append({
             "id":    f"fluxo-{agent_id}",
             "agent": agent_id,

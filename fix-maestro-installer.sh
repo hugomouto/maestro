@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# fix-maestro-installer.sh
+# fix-maestro-installer.sh — versão corrigida para ambientes Debian/Ubuntu
+# Detecta automaticamente o venv ativo ou usa --break-system-packages
 # Corrige o installer.py para que:
 #   1. CLAUDE.md use seções delimitadas — framework sempre atualiza, usuário preserva
 #   2. maestro update regenera as seções do framework no CLAUDE.md existente
@@ -13,9 +14,11 @@ set -e
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 ok()      { echo -e "${GREEN}✓${NC} $1"; }
+warn()    { echo -e "${YELLOW}!${NC} $1"; }
 section() { echo -e "\n${CYAN}── $1 ──${NC}"; }
 
 echo ""
@@ -27,6 +30,33 @@ echo ""
 if [ ! -f "pyproject.toml" ] || [ ! -d "maestro" ]; then
     echo "ERRO: rode na raiz do repositório maestro/"
     exit 1
+fi
+
+# =============================================================================
+# Detecta qual pip usar
+# =============================================================================
+section "Detectando ambiente Python"
+
+PIP_CMD=""
+EXTRA_FLAGS=""
+
+# 1. venv ativo?
+if [ -n "$VIRTUAL_ENV" ]; then
+    PIP_CMD="$VIRTUAL_ENV/bin/pip"
+    ok "venv ativo: $VIRTUAL_ENV"
+
+# 2. pipx?
+elif command -v pipx &>/dev/null && pipx list 2>/dev/null | grep -q maestro; then
+    echo -e "  ${BLUE}→${NC} Maestro instalado via pipx — reinstalando"
+    pipx install -e . --force 2>/dev/null || pipx reinstall maestro
+    ok "pipx reinstalado"
+    PIP_CMD="SKIP"
+
+# 3. Debian/Ubuntu: --break-system-packages
+else
+    warn "Sem venv ativo. Usando --break-system-packages (Debian/Ubuntu)"
+    PIP_CMD="pip"
+    EXTRA_FLAGS="--break-system-packages"
 fi
 
 # =============================================================================
@@ -62,14 +92,9 @@ FRAMEWORK_DIR = ".maestro-core"
 USER_DIR      = "maestro-workspace"
 CONFIG_FILE   = "maestro.config.yaml"
 
-# Marcadores do bloco gerenciado pelo framework
 BLOCK_START = "<!-- MAESTRO:framework -->"
 BLOCK_END   = "<!-- /MAESTRO:framework -->"
 
-# =============================================================================
-# Bloco FRAMEWORK — sempre atualizado pelo Maestro
-# Adicione novas skills aqui. O update propaga automaticamente.
-# =============================================================================
 FRAMEWORK_BLOCK = """\
 <!-- MAESTRO:framework -->
 <!-- Este bloco é gerenciado pelo Maestro. Não edite manualmente. -->
@@ -157,9 +182,6 @@ maestro version        # versão instalada
 ```
 <!-- /MAESTRO:framework -->"""
 
-# =============================================================================
-# Seção USER — escrita uma vez, nunca sobrescrita
-# =============================================================================
 USER_SECTION = """\
 ## Este projeto
 
@@ -219,46 +241,33 @@ def update(target_path: str = "."):
 
 
 def _install_claude_md(root: Path):
-    """
-    Primeira instalação: escreve CLAUDE.md completo com bloco framework + seção user.
-    Se já existir, só atualiza o bloco framework.
-    """
     path = root / "CLAUDE.md"
     if path.exists():
         _update_claude_md(root)
         return
-
     content = f"# CLAUDE.md — Maestro\n\n{FRAMEWORK_BLOCK}\n\n---\n\n{USER_SECTION}"
     path.write_text(content, encoding="utf-8")
     console.print(f"  [blue]→[/blue] CLAUDE.md criado")
 
 
 def _update_claude_md(root: Path):
-    """
-    Atualiza apenas o bloco MAESTRO:framework no CLAUDE.md existente.
-    Preserva tudo fora do bloco intacto.
-    Se o bloco não existir (CLAUDE.md antigo), adiciona no topo.
-    """
     path = root / "CLAUDE.md"
-
     if not path.exists():
         _install_claude_md(root)
         return
 
     content = path.read_text(encoding="utf-8")
-
     pattern = re.compile(
         rf"{re.escape(BLOCK_START)}.*?{re.escape(BLOCK_END)}",
         re.DOTALL
     )
 
     if pattern.search(content):
-        # Bloco existe — substitui
         updated = pattern.sub(FRAMEWORK_BLOCK, content)
         path.write_text(updated, encoding="utf-8")
         console.print(f"  [blue]→[/blue] CLAUDE.md atualizado (bloco framework regenerado)")
     else:
-        # CLAUDE.md antigo sem bloco — insere bloco após o título
+        # CLAUDE.md antigo sem bloco — insere após o título
         lines = content.split("\n")
         insert_at = 1
         for i, line in enumerate(lines):
@@ -296,23 +305,30 @@ INSTALLER
 ok "maestro/installer.py"
 
 # =============================================================================
-# SEÇÃO 2 — reinstala o pacote
+# SEÇÃO 2 — reinstala usando o pip correto
 # =============================================================================
 section "Reinstalando pacote"
 
-if pip install -e . -q; then
-    ok "pip install -e . concluído"
-else
-    echo "pip install falhou — rode manualmente: pip install -e ."
-    exit 1
+if [ "$PIP_CMD" = "SKIP" ]; then
+    ok "pipx já reinstalou — pulando pip"
+elif [ -n "$PIP_CMD" ]; then
+    if $PIP_CMD install -e . -q $EXTRA_FLAGS; then
+        ok "pacote reinstalado com sucesso"
+    else
+        warn "Falhou. Tente manualmente uma das opções:"
+        echo "  # Se tiver venv:"
+        echo "  source .venv/bin/activate && pip install -e ."
+        echo "  # Sem venv (Debian):"
+        echo "  pip install -e . --break-system-packages"
+        exit 1
+    fi
 fi
 
 # =============================================================================
-# SEÇÃO 3 — propaga para o projeto ERP (se existir CLAUDE.md local)
+# SEÇÃO 3 — propaga para projetos instalados no diretório pai
 # =============================================================================
 section "Propagando para projetos instalados"
 
-# Busca projetos com Maestro instalado no diretório pai
 PROPAGATED=0
 for dir in ../*/; do
     if [ -f "${dir}CLAUDE.md" ] && [ -d "${dir}.maestro-core" ]; then
@@ -335,16 +351,9 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║              Installer corrigido!                        ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  O que mudou:"
-echo ""
-echo -e "  ${GREEN}✓${NC} CLAUDE.md agora tem duas camadas:"
-echo -e "      <!-- MAESTRO:framework --> ... <!-- /MAESTRO:framework -->"
-echo -e "      └── atualizado automaticamente no install e update"
-echo -e "      Fora do bloco → seção do usuário, nunca sobrescrita"
-echo ""
-echo -e "  ${GREEN}✓${NC} maestro update agora regenera as skills no CLAUDE.md"
-echo -e "  ${GREEN}✓${NC} Novas skills aparecem no Claude Code sem config manual"
-echo -e "  ${GREEN}✓${NC} CLAUDE.md antigos (sem bloco) são migrados automaticamente"
+echo -e "  ${GREEN}✓${NC} CLAUDE.md com bloco <!-- MAESTRO:framework --> versionado"
+echo -e "  ${GREEN}✓${NC} maestro update regenera skills automaticamente"
+echo -e "  ${GREEN}✓${NC} Seção do usuário preservada em todo update"
 echo ""
 echo -e "  Para propagar ao ERP agora:"
 echo -e "    ${GREEN}cd ../seu-erp && maestro update${NC}"

@@ -10,10 +10,11 @@ SKILLS = [
         "command":     "/MAESTRO-build-team",
         "cli":         "maestro build-team",
         "description": (
-            "Elicita o domínio do usuário e constrói automaticamente "
-            "agentes, tasks, workflows e squads a partir das operações informadas. "
-            "Passa pelas três camadas: Elicitação → Síntese → Execução (Ralph). "
-            "Cada agente gerado segue o Context Budget Protocol."
+            "Elicita o domínio do usuário e constrói automaticamente agentes "
+            "especializados, tasks, workflows e squads. Cada agente tem um "
+            "agent_role próprio — pesquisador, analista, produtor de conteúdo etc. "
+            "Cria a estrutura de pastas do domínio (context/, data/, ops/, reports/) "
+            "e gera STRUCTURE.md na raiz do projeto."
         ),
     },
 ]
@@ -34,8 +35,7 @@ def main():
 
 
 @main.command()
-@click.option("--path", default=".", show_default=True,
-              help="Diretório onde o Maestro será instalado.")
+@click.option("--path", default=".", show_default=True)
 def install(path):
     """Instala o Maestro no projeto atual."""
     _print_banner()
@@ -44,8 +44,7 @@ def install(path):
 
 
 @main.command()
-@click.option("--path", default=".", show_default=True,
-              help="Diretório do projeto a ser atualizado.")
+@click.option("--path", default=".", show_default=True)
 def update(path):
     """Atualiza .maestro-core/ preservando workspace e configurações."""
     _print_banner()
@@ -80,22 +79,14 @@ def skills():
 
     console.print(table)
     console.print()
-    console.print(
-        "[dim]Use o Skill dentro do Claude Code ou rode o Comando CLI "
-        "diretamente no terminal.[/dim]"
-    )
-    console.print()
 
 
 @main.command("build-team")
-@click.option("--domain", default=None,
-              help="Nome do domínio a elicitar.")
-@click.option("--config", default="maestro.config.yaml", show_default=True,
-              help="Caminho para o arquivo de configuração.")
-@click.option("--auto", is_flag=True, default=False,
-              help="Executa síntese e geração automaticamente após elicitação.")
+@click.option("--domain", default=None)
+@click.option("--config", default="maestro.config.yaml", show_default=True)
+@click.option("--auto",   is_flag=True, default=False)
 def build_team(domain, config, auto):
-    """[/MAESTRO-build-team] Elicita domínio e gera agentes, tasks e workflows."""
+    """[/MAESTRO-build-team] Elicita domínio e gera agentes especializados."""
     _print_banner()
     from maestro.skills.build_team import run
     run(domain=domain, config_path=config, auto=auto)

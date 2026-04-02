@@ -14,12 +14,13 @@ squads:
       - id: "{{OPERATION_ID}}"
         intent: "{{OPERATION_INTENT}}"
         executor: agent
-        agent: "{{AGENT_ROLE}}-agent"       # quem executa
-        quality_gate: "{{DECISION_MAKER}}"  # quem aprova
+        agent: "{{AGENT_ROLE}}-agent"
+        quality_gate: "{{DECISION_MAKER}}"
         failure_modes:
           - "{{FAILURE_MODE}}"
         depends_on: []
-        context_files: []
+        context_files:
+          - "./{{DOMAIN_NAME}}/context/playbook.md"
 
     workflows:
       - id: "fluxo-{{AGENT_ROLE}}-agent"

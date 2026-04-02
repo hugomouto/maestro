@@ -3,10 +3,6 @@ task: validate-artifact
 executor: "@validator"
 executor_type: agent
 quality_gate: human
-
-# ── Context Budget ────────────────────────────────────────────────────────────
-# Carregue APENAS o artefato sendo validado.
-# Se precisar verificar referência cruzada, carregue só o arquivo referenciado.
 context_files:
   - "{artifact_path}"
 
@@ -27,22 +23,24 @@ saida:
 checklist:
   - "[ ] Ler apenas o artefato indicado"
   - "[ ] Verificar campos obrigatórios"
+  - "[ ] Verificar que context_files não aponta para data/raw/"
   - "[ ] Verificar referências (carregar só o referenciado se necessário)"
-  - "[ ] Verificar executor != quality_gate (tasks)"
+  - "[ ] Verificar agent != quality_gate (tasks)"
   - "[ ] Gerar relatório com score"
 
 acceptance_criteria:
   - Score >= 7/10 para aprovar
-  - Issues críticos bloqueiam
+  - context_files apontando para data/raw/ bloqueia imediatamente
   - Nenhum arquivo carregado além do artefato e suas referências diretas
 ---
 
 # validate-artifact
 
-## Protocolo de validação lean
+## Protocolo
 
 1. Leia o artefato — apenas ele
-2. Identifique referências a outros arquivos
-3. Para cada referência que precisa verificar: carregue só esse arquivo
-4. Calcule o score
-5. Gere o relatório
+2. Verifique se context_files tem data/raw/ → bloqueia se sim
+3. Identifique referências a outros arquivos
+4. Para cada referência que precisa verificar: carregue só esse arquivo
+5. Calcule o score
+6. Gere o relatório

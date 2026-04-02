@@ -3,9 +3,6 @@ task: infer-executor
 executor: "@synthesizer"
 executor_type: agent
 quality_gate: human
-
-# ── Context Budget ────────────────────────────────────────────────────────────
-# Task auto-suficiente. As regras de inferência estão aqui.
 context_files: []
 
 entrada:
@@ -34,6 +31,6 @@ acceptance_criteria:
 ## Regras (aplicar em ordem)
 
 1. decision_maker humano + critério subjetivo → `human`
-2. Intent: calcular, exportar, transformar, processar → `worker`
+2. Intent: calcular, exportar, transformar, processar, sincronizar → `worker`
 3. Requer metodologia específica de domínio → `clone`
 4. Default → `agent`

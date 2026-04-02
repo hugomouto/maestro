@@ -1,3 +1,65 @@
+#!/usr/bin/env bash
+# =============================================================================
+# fix-maestro-install-outofthebox.sh
+# Atualiza o installer.py para que `maestro install` crie tudo necessário:
+#   - CLAUDE.md com skills e protocolo (sempre atualizado no update)
+#   - STRUCTURE.md com convenção de pastas
+#   - Estrutura de domínios (context/, data/, ops/, reports/) com playbook.md
+#   - maestro update também cria domínios novos adicionados ao config
+# Uso: bash fix-maestro-install-outofthebox.sh (na raiz do repositório maestro/)
+# =============================================================================
+
+set -e
+
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+ok()      { echo -e "${GREEN}✓${NC} $1"; }
+warn()    { echo -e "${YELLOW}!${NC} $1"; }
+section() { echo -e "\n${CYAN}── $1 ──${NC}"; }
+
+echo ""
+echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║   M A E S T R O  —  Out of the Box Install  ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
+echo ""
+
+if [ ! -f "pyproject.toml" ] || [ ! -d "maestro" ]; then
+    echo "ERRO: rode na raiz do repositório maestro/"
+    exit 1
+fi
+
+# =============================================================================
+# Detecta pip
+# =============================================================================
+section "Detectando ambiente Python"
+
+PIP_CMD=""
+EXTRA_FLAGS=""
+
+if [ -n "$VIRTUAL_ENV" ]; then
+    PIP_CMD="$VIRTUAL_ENV/bin/pip"
+    ok "venv ativo: $VIRTUAL_ENV"
+elif command -v pipx &>/dev/null && pipx list 2>/dev/null | grep -q maestro; then
+    echo -e "  ${BLUE}→${NC} reinstalando via pipx"
+    pipx install -e . --force 2>/dev/null || pipx reinstall maestro
+    ok "pipx reinstalado"
+    PIP_CMD="SKIP"
+else
+    warn "Sem venv — usando --break-system-packages"
+    PIP_CMD="pip"
+    EXTRA_FLAGS="--break-system-packages"
+fi
+
+# =============================================================================
+# SEÇÃO 1 — installer.py completo
+# =============================================================================
+section "maestro/installer.py"
+
+cat > maestro/installer.py << 'INSTALLER'
 """
 Maestro Installer — Out of the Box
 ------------------------------------
@@ -516,3 +578,71 @@ def _write_if_missing(path: Path, content: str):
         console.print(f"  [blue]→[/blue] {path.name} criado")
     else:
         console.print(f"  [yellow]→[/yellow] {path.name} já existe, mantido")
+INSTALLER
+ok "maestro/installer.py"
+
+# =============================================================================
+# SEÇÃO 2 — reinstala
+# =============================================================================
+section "Reinstalando pacote"
+
+if [ "$PIP_CMD" = "SKIP" ]; then
+    ok "pipx já reinstalou"
+elif [ -n "$PIP_CMD" ]; then
+    if $PIP_CMD install -e . -q $EXTRA_FLAGS; then
+        ok "pacote reinstalado"
+    else
+        warn "Falhou. Tente manualmente:"
+        echo "  pip install -e . --break-system-packages"
+        exit 1
+    fi
+fi
+
+# =============================================================================
+# SEÇÃO 3 — propaga para projetos instalados
+# =============================================================================
+section "Propagando para projetos instalados"
+
+PROPAGATED=0
+for dir in ../*/; do
+    if [ -f "${dir}CLAUDE.md" ] && [ -d "${dir}.maestro-core" ]; then
+        echo -e "  ${BLUE}→${NC} Atualizando ${dir}"
+        maestro update --path "$dir"
+        PROPAGATED=$((PROPAGATED + 1))
+    fi
+done
+
+if [ $PROPAGATED -eq 0 ]; then
+    echo -e "  Nenhum projeto encontrado. Rode ${GREEN}maestro update${NC} em cada projeto."
+fi
+
+# =============================================================================
+# RESUMO
+# =============================================================================
+echo ""
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║         maestro install agora é out of the box!          ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "  O que o ${GREEN}maestro install${NC} agora cria:"
+echo ""
+echo -e "  ${GREEN}✓${NC} .maestro-core/          — framework"
+echo -e "  ${GREEN}✓${NC} maestro-workspace/      — diretórios de trabalho"
+echo -e "  ${GREEN}✓${NC} CLAUDE.md               — skills + protocolo (versionado)"
+echo -e "  ${GREEN}✓${NC} STRUCTURE.md            — convenção de pastas"
+echo -e "  ${GREEN}✓${NC} maestro.config.yaml     — config comentada"
+echo -e "  ${GREEN}✓${NC} {dominio}/              — estrutura completa por domínio"
+echo -e "  ${GREEN}✓${NC} {dominio}/context/playbook.md — template pré-preenchido"
+echo ""
+echo -e "  O ${GREEN}maestro update${NC} agora também:"
+echo -e "  ${GREEN}✓${NC} Cria domínios novos adicionados ao config"
+echo -e "  ${GREEN}✓${NC} Regenera CLAUDE.md e STRUCTURE.md"
+echo -e "  ${GREEN}✓${NC} Nunca sobrescreve playbooks ou dados existentes"
+echo ""
+echo -e "  Fluxo recomendado num projeto novo:"
+echo -e "    ${BLUE}1.${NC} ${GREEN}maestro install${NC}"
+echo -e "    ${BLUE}2.${NC} Edite ${GREEN}maestro.config.yaml${NC} com seus domínios"
+echo -e "    ${BLUE}3.${NC} ${GREEN}maestro update${NC}  ← cria as pastas e playbooks"
+echo -e "    ${BLUE}4.${NC} Preencha cada ${GREEN}{dominio}/context/playbook.md${NC}"
+echo -e "    ${BLUE}5.${NC} ${GREEN}maestro build-team${NC}  ← gera os agentes"
+echo ""

@@ -9,6 +9,7 @@ operations:
       - "{{FAILURE_MODE_1}}"
     executor_type: agent
     depends_on: []
-    context_files: []
+    context_files:
+      - "./{{DOMAIN_NAME}}/context/playbook.md"
 
 sequences: []

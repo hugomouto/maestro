@@ -1,0 +1,22 @@
+domain: "{{DOMAIN_NAME}}"
+version: "0.2.0"
+squads:
+  - id: "{{DOMAIN_NAME}}-squad"
+    agents:
+      - id: "{{AGENT_ROLE}}-agent"
+        persona_base: "{{AGENT_ROLE}}"
+        commands: ["{{OPERATION_ID}}"]
+    tasks:
+      - id: "{{OPERATION_ID}}"
+        intent: "{{OPERATION_INTENT}}"
+        executor: agent
+        agent: "{{AGENT_ROLE}}-agent"
+        quality_gate: "{{DECISION_MAKER}}"
+        failure_modes: ["{{FAILURE_MODE}}"]
+        depends_on: []
+        context_files:
+          - "./{{DOMAIN_NAME}}/context/playbook.md"
+    workflows:
+      - id: "fluxo-{{AGENT_ROLE}}-agent"
+        agent: "{{AGENT_ROLE}}-agent"
+        steps: ["{{OPERATION_ID}}"]

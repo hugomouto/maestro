@@ -1,0 +1,19 @@
+# maestro.config.yaml
+# Adicione seus domínios e rode `maestro update` para criar as pastas.
+
+domain_map: {}
+
+# Exemplo:
+# domain_map:
+#   vendas:
+#     description: "Pipeline, propostas, contratos, fechamento"
+#   marketing:
+#     description: "Marca, conteúdo, campanhas, redes sociais"
+#   operacao:
+#     description: "Fornecedores, estoque, processos, SLAs"
+#   produto:
+#     description: "Roadmap, specs, lançamentos"
+#   gestao:
+#     description: "Financeiro, OKRs, decisões estratégicas"
+
+context_routing: {}

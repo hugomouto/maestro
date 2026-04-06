@@ -1,0 +1,12 @@
+domain: "{{DOMAIN_NAME}}"
+operations:
+  - id: "{{OPERATION_ID}}"
+    intent: "{{OPERATION_INTENT}}"
+    agent_role: "{{AGENT_ROLE}}"
+    decision_maker: "{{DECISION_MAKER}}"
+    failure_modes: ["{{FAILURE_MODE}}"]
+    executor_type: agent
+    depends_on: []
+    context_files:
+      - "./{{DOMAIN_NAME}}/context/playbook.md"
+sequences: []

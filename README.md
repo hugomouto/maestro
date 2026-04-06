@@ -3,6 +3,7 @@
 Meta-framework auto-configurável de agentes, tasks e workflows.
 Entende o domínio do usuário e gera toda a estrutura de operação a partir dele.
 
+
 ## Sobre                                                                                                
 
 O Maestro é um framework de orquestração e automação de fluxos de trabalho (workflows) de Inteligência Artificial. Seu        
@@ -34,11 +35,22 @@ negócio específico (ex: "Vendas", "Marketing").
 | **Motor de Skills** | `maestro/skills/build_team.py` | Contém a lógica de negócio para criar um domínio: orquestra a elicitação de requisitos, a síntese do modelo e a geração do blueprint. |
 | **Motor de Execução** | `maestro/ralph/executor.py` | O motor de tempo de execução. Ele lê o blueprint e executa as tarefas definidas para produzir o resultado final do domínio. |
 | **Modelagem** | `maestro/core/templates/*.yaml` | Define os esquemas de dados obrigatórios: o formato do Modelo de Domínio e o formato do Blueprint de Execução. |
-| **Tarefas** | `maestro/core/tasks/*.md` | Documenta e estrutura as tarefas atômicas (funções) que serão chamadas durante a execução do fluxo de trabalho. |                              
-                                                                                                                              
+| **Tarefas** | `maestro/core/tasks/*.md` | Documenta e estrutura as tarefas atômicas (funções) que serão chamadas durante a execução do fluxo de trabalho. |                                                                                                                    
 
 Em resumo, o Maestro é um sistema que modela o conhecimento de negócio (Domínios) e automatiza o processo de execução desse   
-conhecimento, transformando requisitos em fluxos de trabalho operacionais.       
+conhecimento, transformando requisitos em fluxos de trabalho operacionais.
+
+## Estrutura da Domínios
+
+Todos os domínios seguem a mesma estrutura. 
+<img width="1440" height="1738" alt="image" src="https://github.com/user-attachments/assets/64195548-c59c-45c6-9512-f98d74cbe32f" />
+(Exemplo de lógica para um ERP)
+
+{dominio}/
+├── context/       ← identidade e regras permanentes (lidas raramente, alto valor)
+├── data/          ← dados brutos e processados (lidos por task específica)
+├── ops/           ← templates, pipelines, logs de execução
+└── reports/       ← saídas geradas (o agente escreve aqui)
 
 ## Dependências
 

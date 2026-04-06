@@ -54,7 +54,7 @@ def run(domain=None, config_path="maestro.config.yaml", auto=False):
     console.print("\n[bold]Camada 3 — Execução[/bold]\n")
     from maestro.ralph.executor import run as ralph_run
     ralph_run(str(bp_path))
-    console.print(f"\n[green]✓ Artefatos → maestro-workspace/output/{domain}/[/green]\n")
+    console.print(f"\n[green]✓ Artefatos → maestro-workspace/squads/[/green]\n")
 
 
 def _choose_domain(domain, domains, config):

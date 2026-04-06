@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.prompt import Confirm
 from rich.progress import Progress, SpinnerColumn, TextColumn
 console  = Console()
-OUTPUT   = "maestro-workspace/output"
+OUTPUT   = "maestro-workspace/squads"
 PROGRESS = "maestro-workspace/ralph-progress.json"
 
 
@@ -41,7 +41,7 @@ def run(blueprint_path: str):
             _save_progress(blueprint_path, progress)
             bar.advance(job)
 
-    _print_summary(domain, blueprint)
+    _print_summary(blueprint)
 
 
 
@@ -74,7 +74,8 @@ def _generate(artifact, domain):
 
 def _artifact_path(domain, artifact):
     ext = ".yaml" if artifact["type"] == "workflow" else ".md"
-    return Path(OUTPUT) / domain / f"{artifact['type']}s" / f"{artifact['id']}{ext}"
+    squad = artifact.get("squad", domain)
+    return Path(OUTPUT) / squad / f"{artifact['type']}s" / f"{artifact['id']}{ext}"
 
 
 def _tmpl_agent(a, domain):
@@ -196,13 +197,14 @@ def _save_progress(blueprint_path, data):
     Path(PROGRESS).write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def _print_summary(domain, blueprint):
-    console.print(f"\n[bold]Artefatos gerados em {OUTPUT}/{domain}/:[/bold]")
+def _print_summary(blueprint):
     for squad in blueprint.get("squads", []):
         n_a = len(squad.get("agents", []))
         n_t = len(squad.get("tasks", []))
         n_w = len(squad.get("workflows", []))
-        console.print(f"\n  Squad: [cyan]{squad['id']}[/cyan]  [dim]{n_a} agente(s) · {n_t} task(s) · {n_w} workflow(s)[/dim]\n")
+        squad_path = f"{OUTPUT}/{squad['id']}"
+        console.print(f"\n[bold]Artefatos gerados em {squad_path}/:[/bold]")
+        console.print(f"  Squad: [cyan]{squad['id']}[/cyan]  [dim]{n_a} agente(s) · {n_t} task(s) · {n_w} workflow(s)[/dim]\n")
         for a in squad.get("agents", []):
             console.print(f"    [green]agents/[/green]{a['id']}.md  [dim]→ {', '.join(a.get('commands', []))}[/dim]")
         for t in squad.get("tasks", []):

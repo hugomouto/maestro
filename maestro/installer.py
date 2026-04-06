@@ -266,7 +266,7 @@ def _copy_framework(root: Path):
 
 
 def _create_workspace(root: Path):
-    for sub in ["domain-models", "blueprints", "output"]:
+    for sub in ["domain-models", "blueprints", "squads"]:
         (root / USER_DIR / sub).mkdir(parents=True, exist_ok=True)
     console.print(f"  [blue]→[/blue] maestro-workspace/ pronto")
 
@@ -307,7 +307,17 @@ Regras obrigatórias:
 - NUNCA inclua `data/raw/` em `context_files`
 
 **Camada 3 — Scaffold**
-Informe ao usuário que deve rodar `maestro build-team` no terminal para gerar os artefatos físicos.
+CRITICAL: NÃO crie arquivos diretamente. NÃO use ferramentas de escrita de arquivo nesta etapa.
+
+Informe ao usuário que deve rodar no terminal:
+```
+maestro build-team
+```
+
+Explique que este comando vai:
+1. Gerar `maestro-workspace/domain-models/{domain}.yaml`
+2. Gerar `maestro-workspace/blueprints/{domain}.yaml`
+3. Gerar os artefatos finais em `maestro-workspace/squads/{squad-id}/agents/`, `.../tasks/`, `.../workflows/`
 
 Mostre um resumo do que será gerado:
 - Quantos agentes e quais roles

@@ -5,16 +5,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.prompt import Confirm
 from rich.progress import Progress, SpinnerColumn, TextColumn
-
 console  = Console()
 OUTPUT   = "maestro-workspace/output"
 PROGRESS = "maestro-workspace/ralph-progress.json"
-
-DOMAIN_STRUCTURE = [
-    "context", "data/raw", "data/processed", "data/snapshots",
-    "ops/tasks", "ops/templates", "ops/history",
-    "reports/weekly", "reports/monthly", "reports/adhoc",
-]
 
 
 def run(blueprint_path: str):
@@ -31,7 +24,8 @@ def run(blueprint_path: str):
 
     domain_path = Path(".") / domain
     if not domain_path.exists() or Confirm.ask(f"Criar/atualizar estrutura em ./{domain}/?", default=True):
-        _scaffold_domain(domain_path)
+        from maestro.domain import create_domain
+        create_domain(name=domain, root=Path(".").resolve())
 
     _scaffold_structure_md(Path("."))
 
@@ -49,15 +43,6 @@ def run(blueprint_path: str):
 
     _print_summary(domain, blueprint)
 
-
-def _scaffold_domain(root: Path):
-    for sub in DOMAIN_STRUCTURE:
-        folder = root / sub
-        folder.mkdir(parents=True, exist_ok=True)
-        gitkeep = folder / ".gitkeep"
-        if not [f for f in folder.iterdir() if f.name != ".gitkeep"] and not gitkeep.exists():
-            gitkeep.touch()
-    console.print(f"  [blue]→[/blue] Estrutura criada em [cyan]{root.name}/[/cyan]")
 
 
 def _scaffold_structure_md(project_root: Path):

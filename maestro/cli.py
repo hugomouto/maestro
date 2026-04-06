@@ -7,6 +7,15 @@ console = Console()
 
 SKILLS = [
     {
+        "command":     "/MAESTRO-create-domain",
+        "cli":         "maestro create-domain",
+        "description": (
+            "Cria um novo domínio com estrutura completa de subpastas "
+            "(context/, data/, ops/, reports/), playbook.md pré-preenchido "
+            "e registro automático no maestro.config.yaml."
+        ),
+    },
+    {
         "command":     "/MAESTRO-build-team",
         "cli":         "maestro build-team",
         "description": (
@@ -77,6 +86,17 @@ def skills():
         table.add_row(s["command"], s["cli"], s["description"])
     console.print(table)
     console.print()
+
+
+@main.command("create-domain")
+@click.option("--name",        default=None, help="Nome do domínio")
+@click.option("--description", default="",   help="Descrição curta do domínio")
+@click.option("--path",        default=".",  show_default=True)
+def create_domain(name, description, path):
+    """[/MAESTRO-create-domain] Cria um novo domínio com estrutura de pastas e playbook."""
+    _print_banner()
+    from maestro.skills.create_domain import run
+    run(name=name, description=description, path=path)
 
 
 @main.command("build-team")

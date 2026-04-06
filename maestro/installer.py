@@ -6,7 +6,6 @@ import shutil
 import yaml
 from pathlib import Path
 from rich.console import Console
-
 console = Console()
 
 FRAMEWORK_DIR = ".maestro-core"
@@ -14,19 +13,6 @@ USER_DIR      = "maestro-workspace"
 CONFIG_FILE   = "maestro.config.yaml"
 BLOCK_START   = "<!-- MAESTRO:framework -->"
 BLOCK_END     = "<!-- /MAESTRO:framework -->"
-
-DOMAIN_STRUCTURE = [
-    "context",
-    "data/raw",
-    "data/processed",
-    "data/snapshots",
-    "ops/tasks",
-    "ops/templates",
-    "ops/history",
-    "reports/weekly",
-    "reports/monthly",
-    "reports/adhoc",
-]
 
 # =============================================================================
 # FRAMEWORK_BLOCK — regenerado em todo install/update
@@ -41,6 +27,7 @@ FRAMEWORK_BLOCK = """\
 | Skill | Comando CLI | O que faz |
 |-------|-------------|-----------|
 | /MAESTRO-build-team | `maestro build-team` | Elicita domínio, gera agentes especializados por role, cria estrutura de pastas |
+| /MAESTRO-create-domain | `maestro create-domain` | Cria um novo domínio com estrutura de pastas e playbook.md |
 
 ---
 
@@ -92,11 +79,12 @@ FRAMEWORK_BLOCK = """\
 ## Comandos CLI
 
 ```bash
-maestro install       # instala e inicializa o projeto completo
-maestro update        # atualiza framework + cria domínios novos do config
-maestro build-team    # elicita domínio e gera agentes
-maestro skills        # lista skills
-maestro version       # versão instalada
+maestro install          # instala e inicializa o projeto completo
+maestro update           # atualiza framework + cria domínios novos do config
+maestro create-domain    # cria um novo domínio interativamente
+maestro build-team       # elicita domínio e gera agentes
+maestro skills           # lista skills
+maestro version          # versão instalada
 ```
 <!-- /MAESTRO:framework -->"""
 
@@ -178,61 +166,6 @@ ops/history/                ← só com histórico explícito
 - Template: `{nome}-template.md`
 - Dado processado: `{fonte}-YYYY-MM.md`
 - Relatório: `relatorio-YYYY-MM.md`
-"""
-
-PLAYBOOK_TEMPLATE = """\
-# playbook.md — {domain}
-
-> Documento principal do domínio `{domain}`.
-> Lido pelo agente antes de qualquer operação.
-> Preencha as seções. Mantenha abaixo de 400 linhas.
-
----
-
-## Propósito
-
-<!-- O que este domínio faz e o que NÃO faz -->
-
-...
-
----
-
-## Operações
-
-| Operação | Responsável | Critério de conclusão |
-|----------|-------------|----------------------|
-| ...      | ...         | ...                  |
-
----
-
-## Regras de negócio
-
-- ...
-
----
-
-## Fontes de dados
-
-| Fonte | Localização |
-|-------|-------------|
-| ...   | `{domain}/data/processed/` |
-
----
-
-## Interfaces com outros domínios
-
-| Direção | Domínio | O que troca |
-|---------|---------|-------------|
-| Recebe de | ... | ... |
-| Entrega para | ... | ... |
-
----
-
-## Glossário
-
-| Termo | Definição |
-|-------|-----------|
-| ...   | ...       |
 """
 
 
@@ -317,31 +250,9 @@ def _scaffold_domains(root: Path):
     if not domains:
         console.print(f"  [dim]Sem domínios no config — edite {CONFIG_FILE} e rode update[/dim]")
         return
+    from maestro.domain import create_domain
     for name, cfg in domains.items():
-        _create_domain(root / name, name, cfg or {})
-
-
-def _create_domain(domain_root: Path, name: str, cfg: dict):
-    is_new = not domain_root.exists()
-    for sub in DOMAIN_STRUCTURE:
-        folder = domain_root / sub
-        folder.mkdir(parents=True, exist_ok=True)
-        gitkeep = folder / ".gitkeep"
-        contents = [f for f in folder.iterdir() if f.name != ".gitkeep"]
-        if not contents and not gitkeep.exists():
-            gitkeep.touch()
-
-    playbook = domain_root / "context" / "playbook.md"
-    if not playbook.exists():
-        content = PLAYBOOK_TEMPLATE.format(domain=name)
-        desc = cfg.get("description", "")
-        if desc:
-            content = content.replace("## Propósito\n\n<!-- O que este domínio faz e o que NÃO faz -->\n\n...", f"## Propósito\n\n{desc}")
-        playbook.write_text(content, encoding="utf-8")
-        label = "criado" if is_new else "playbook.md criado"
-        console.print(f"  [blue]→[/blue] [cyan]{name}/[/cyan] {label}")
-    else:
-        console.print(f"  [yellow]→[/yellow] [cyan]{name}/[/cyan] já existe — preservado")
+        create_domain(name=name, root=root, description=(cfg or {}).get("description", ""))
 
 
 def _copy_framework(root: Path):
@@ -407,6 +318,41 @@ Consulte `.maestro-core/agents/intake.md` e `.maestro-core/protocols/context-bud
 """
     command_file.write_text(content, encoding="utf-8")
     console.print(f"  [blue]→[/blue] .claude/commands/MAESTRO-build-team.md criado")
+
+    create_domain_file = commands_dir / "MAESTRO-create-domain.md"
+    create_domain_content = """Você é o Maestro operando no modo /MAESTRO-create-domain.
+
+Crie um novo domínio no projeto atual.
+
+**Passo 1 — Elicitação**
+Pergunte ao usuário:
+1. Nome do domínio (minúsculas, hífens, sem espaços — ex: vendas, marketing, operacao)
+2. Descrição curta do domínio (uma frase — o que ele faz e o que NÃO faz)
+
+**Passo 2 — Confirmação**
+Mostre o resumo do que será criado:
+- Pasta `{nome}/` com subpastas: context/, data/raw/, data/processed/, data/snapshots/, ops/tasks/, ops/templates/, ops/history/, reports/weekly/, reports/monthly/, reports/adhoc/
+- Arquivo `{nome}/context/playbook.md` pré-preenchido
+- Registro em `maestro.config.yaml`
+
+Peça confirmação antes de prosseguir.
+
+**Passo 3 — Criação**
+Informe ao usuário que deve rodar no terminal:
+```
+maestro create-domain
+```
+Ou, se já souber o nome:
+```
+maestro create-domain --name {nome}
+```
+
+Após criado, oriente:
+1. Preencha `{nome}/context/playbook.md` com as regras do domínio
+2. Rode `maestro build-team` para gerar os agentes
+"""
+    create_domain_file.write_text(create_domain_content, encoding="utf-8")
+    console.print(f"  [blue]→[/blue] .claude/commands/MAESTRO-create-domain.md criado")
 
 def _write_if_missing(path: Path, content: str):
     if not path.exists():

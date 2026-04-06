@@ -27,13 +27,14 @@ negócio específico (ex: "Vendas", "Marketing").
 3. Estrutura de Componentes Chave                                                                                             
 
                                                                                                                               
-Componente,Arquivo / Módulo,Função
-Ponto de Entrada,maestro/cli.py,"Interface de linha de comando (CLI) que expõe os comandos para gerenciar o framework (install, update, build-team)."
-Configuração,maestro.config.yaml,Mapa central que lista e descreve todos os Domínios que o sistema deve gerenciar.
-Motor de Skills,maestro/skills/build_team.py,"Contém a lógica de negócio para criar um domínio: orquestra a elicitação de requisitos, a síntese do modelo e a geração do blueprint."
-Motor de Execução,maestro/ralph/executor.py,O motor de tempo de execução. Ele lê o blueprint e executa as tarefas definidas para produzir o resultado final do domínio.
-Modelagem,maestro/core/templates/*.yaml,Define os esquemas de dados obrigatórios: o formato do Modelo de Domínio e o formato do Blueprint de Execução.
-Tarefas,maestro/core/tasks/*.md,Documenta e estrutura as tarefas atômicas (funções) que serão chamadas durante a execução do fluxo de trabalho.                                
+| Componente | Arquivo / Módulo | Função |
+| :--- | :--- | :--- |
+| **Ponto de Entrada** | `maestro/cli.py` | Interface de linha de comando (CLI) que expõe os comandos para gerenciar o framework (install, update, build-team). |
+| **Configuração** | `maestro.config.yaml` | Mapa central que lista e descreve todos os Domínios que o sistema deve gerenciar. |
+| **Motor de Skills** | `maestro/skills/build_team.py` | Contém a lógica de negócio para criar um domínio: orquestra a elicitação de requisitos, a síntese do modelo e a geração do blueprint. |
+| **Motor de Execução** | `maestro/ralph/executor.py` | O motor de tempo de execução. Ele lê o blueprint e executa as tarefas definidas para produzir o resultado final do domínio. |
+| **Modelagem** | `maestro/core/templates/*.yaml` | Define os esquemas de dados obrigatórios: o formato do Modelo de Domínio e o formato do Blueprint de Execução. |
+| **Tarefas** | `maestro/core/tasks/*.md` | Documenta e estrutura as tarefas atômicas (funções) que serão chamadas durante a execução do fluxo de trabalho. |                              
                                                                                                                               
 
 Em resumo, o Maestro é um sistema que modela o conhecimento de negócio (Domínios) e automatiza o processo de execução desse   

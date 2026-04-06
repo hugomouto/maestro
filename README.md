@@ -47,9 +47,13 @@ Todos os domínios seguem a mesma estrutura.
 (Exemplo de lógica para um ERP)
 
 {dominio}/
+
 ├── context/       ← identidade e regras permanentes (lidas raramente, alto valor)
+
 ├── data/          ← dados brutos e processados (lidos por task específica)
+
 ├── ops/           ← templates, pipelines, logs de execução
+
 └── reports/       ← saídas geradas (o agente escreve aqui)
 
 ## Dependências
